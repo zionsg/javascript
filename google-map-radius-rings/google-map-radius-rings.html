@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+  <!--
+  /**
+   * Mark location on Google Maps and draw preset radius rings around it
+   *
+   * @author Zion Ng <zion@intzone.com>
+   * @link   [Source] https://github.com/zionsg/javascript/tree/master/google-map-radius-rings
+   * @since  2015-05-23T17:30+08:00
+   */
+  -->
+
+  <head>
+    <style>
+      html { height: 100%; }
+      body { height: 98%; }
+      #map {
+        height: 95%;
+        margin: auto;
+        width: 100%;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div>
+      <form>
+        <input id="address" type="text" value="Singapore" />
+        <input type="submit" value="Find location and draw radius rings" onclick="drawRadiusRings(); return false;" />
+      </form>
+    </div><br />
+    <div id="map"></div>
+  </body>
+
+  <script src="http://maps.googleapis.com/maps/api/js"></script>
+  <script>
+    var map = new google.maps.Map(document.getElementById('map'), {
+            mapTypeId: google.maps.MapTypeId.ROADMAP,
+            zoom: 12
+        }),
+        geocoder = new google.maps.Geocoder(),
+        country = 'SG',
+        areas = { // radius in metres
+            '1km':   {radius: 1000,  color: '#ff0000'},
+            '2.5km': {radius: 2500,  color: '#00ff00'},
+            '5km':   {radius: 5000,  color: '#0000ff'},
+            '7.5km': {radius: 7500,  color: '#ffff00'},
+            '10km':  {radius: 10000, color: '#808080'}
+        };
+
+    document.getElementById('address').focus();
+    drawRadiusRings();
+
+    function drawRadiusRings() {
+        var address = document.getElementById('address').value;
+
+        geocoder.geocode({'address': address, componentRestrictions: {country: country}}, function (results, status) {
+            if (status == google.maps.GeocoderStatus.OK) {
+                var coords = results[0].geometry.location,
+                    marker;
+
+                map = new google.maps.Map(document.getElementById('map'), { // redraw map but retain user zoom
+                    center: coords,
+                    mapTypeId: map.getMapTypeId(),
+                    zoom: map.getZoom()
+                });
+                marker = new google.maps.Marker({
+                    map: map,
+                    position: coords
+                });
+
+                for (var area in areas) {
+                    radius = areas[area].radius;
+                    color = areas[area].color;
+                    circle = new google.maps.Circle({
+                        strokeColor: color,
+                        strokeOpacity: 1,
+                        strokeWeight: 2,
+                        fillColor: color,
+                        fillOpacity: 0.05,
+                        map: map,
+                        center: coords,
+                        radius: radius
+                    });
+                }
+            } else {
+                alert('Geocode was not successful for the following reason: ' + status);
+            }
+        });
+    };
+  </script>
+
+</html>
