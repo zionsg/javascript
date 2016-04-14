@@ -22,7 +22,7 @@ var autoload = (function (scripts) {
         }
     }
 
-    // Create <script> elements for each script
+    // Create <script> element for each script
     scripts.forEach(function (url) {
         var script = document.createElement('script');
 
