@@ -1,1 +1,1 @@
-console.log('Last script to be loaded for page');
+console.log('Last of ' + $('script').length + ' scripts loaded');
