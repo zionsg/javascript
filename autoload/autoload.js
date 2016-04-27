@@ -3,9 +3,10 @@
  *
  * @example <script src="autoload.js" data-autoload="js/test01.js"></script>
  * @example <script src="autoload.js" data-autoload="test02.js, https://code.jquery.com/jquery-2.2.3.min.js"></script>
+ * @link    https://github.com/zionsg/javascript/tree/master/autoload for canonical source repository
  */
 
-// Predefined list of scripts to load in sequence every time the script loader is run
+// Predefined list of scripts to load in sequence every time the script loader is run - change as needed
 var scripts = [
     'js/script01.js',
     'js/script02.js'
