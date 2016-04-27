@@ -2,7 +2,7 @@
 
 _Problem:_
 
-You inherited 100 webpages/webviews of legacy code and they are loading the same set of javascript files,
+You inherited 100 webpages/webviews of legacy code and they are loading the same set of Javascript files,
 with some pages loading additional scripts. 
 This is run client-side and there is no server-side code to enforce use of templates. 
 Do you duplicate the `<script>` tags for every page, like below? And what if you have a new dependency?
