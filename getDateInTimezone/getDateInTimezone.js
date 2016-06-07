@@ -1,6 +1,7 @@
 /**
  * Calculate local time in a different timezone
  *
+ * @link   https://github.com/zionsg/javascript/tree/master/getDateInTimezone for repository
  * @link   http://www.techrepublic.com/article/convert-the-local-time-to-another-time-zone-with-this-javascript/
  * @link   http://jj09.net/javascript-date-a-bad-part/
  * @param  Date        localDate         Note: new Date() uses the timezone of the client browser
@@ -11,7 +12,7 @@
 function getDateInTimezone(localDate, timezoneOffset, returnAsISOString) {
     // Normalize different timezoneOffset formats into (label, sign, hours, minutes) - GMT+08:00, UTC+0800, 8
     var timezoneOffset = ' ' + timezoneOffset, // cast to string in case number is passed in
-        matches = timezoneOffset.trim().match(/^(UTC|GMT)?\s*([+\-]*)(\d{1,2}):?(\d{2})?$/i);
+        matches = timezoneOffset.trim().match(/^(UTC|GMT)?\s*([+\-])?(\d{1,2}):?(\d{2})?$/i);
 
     if (!matches) {
         return localDate;
