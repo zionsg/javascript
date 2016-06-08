@@ -4,16 +4,23 @@
   var now = new Date(); // this uses the timezone of the client browser
   var tests = [
       ['Singapore', 'UTC+08:00'],
-      ['Canada', 'GMT-0700'],
-      ['London', 0],
+      ['Indonesia', 7],
       ['India', '+05:30'],
-      ['Invalid timezone returns same date', 'Hello World!']
+      ['London', 0],
+      ['Newfoundland', '-3:30'],
+      ['Canada', 'GMT-0700'],
+      ['Pitcairn Islands', -8],
+      ['Invalid Timezone', '"Hello World!"']
   ];
+  var newDate;
 
-  console.log('Current local time: ' + now);
+  console.log('Current local time (now): ' + now);
   tests.forEach(function (value, index) {
+      newDate = getDateInTimezone(now, value[1], true);
       console.log(
-        value[0] + ' - offset: ' + value[1] + ', now in their timezone: ' + getDateInTimezone(now, value[1], true)
+          newDate + ' in '
+          + value[0] + ', timezone: ' + value[1]
+          + (newDate === now ? ' [same date returned]' : '')
       );
   });
 </script>
