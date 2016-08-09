@@ -1,0 +1,21 @@
+<script src="extractTimestampFromFilename.js"></script>
+
+<script>
+  var tests = [
+      'test_20160809_01.json',
+      'test_2016-08-09_01.json',
+      'test_20160809T11_01.json',
+      'test_20160809T1130_01.json',
+      'test_20160809T113045_01.json',
+      'test_20160809T113045+08_01.json',
+      'test_20160809T090045+0530_01.json',
+      'test_20160809T033045Z_01.json',
+      'test_20160809T013045-0200_01.json',
+      'test_01.json'
+  ];
+
+  tests.forEach(function (value, index) {
+      var result = extractTimestampFromFilename(value);
+      console.log(result + ' extracted from ' + value);
+  });
+</script>
