@@ -1,0 +1,111 @@
+<html>
+
+  <head>
+    <meta charset="utf-8">
+    <meta name="author" content="Zion Ng, intZone.com">
+    <title>Text to Table</title>
+  </head>
+
+  <body>
+    <h3>Convert text to ASCII/Markdown table</h3>
+
+    <ul>
+      <li>1st line assumed to be header row.</li>
+      <li>Each line becomes a row.</li>
+      <li>|, tab or multiple spaces will be taken as column delimiter.</li>
+    </ul>
+
+    <b>INPUT TEXT:</b><br>
+    <textarea id="text" rows="25" cols="100"></textarea>
+    <br><br>
+
+    <button id="convert" onclick="convert();">Convert</button><br><br>
+
+    <b>RESULT:</b>
+    <pre><div id="result"></div></pre><br><br>
+
+    <script>
+      /**
+       * Onload listener to load sample text
+       */
+      window.addEventListener('load', function (event) {
+          let tab = String.fromCharCode(9);
+
+          document.getElementById('text').value = `
+              Type    vCPU    ECU    Memory (GiB)    Instance Storage (GB)    Linux/UNIX Usage
+              t3.2xlarge    8    Variable    32 GiB    EBS Only    $0.4224 per Hour
+              m5.2xlarge    8    31    32 GiB    EBS Only    $0.48 per Hour
+              c5.2xlarge  |8  |  34    |16 GiB  ${tab}  EBS Only  |    $0.392 per Hour
+          `.trim();
+
+          convert();
+      });
+
+      /**
+       * Parse input text
+       *
+       * @return void
+       */
+      function convert() {
+          let text = document.getElementById('text').value;
+          let result = textToTable(text);
+
+          console.log(result);
+          document.getElementById('result').innerHTML = textToTable(text);
+      }
+
+      /**
+       * Convert text to table
+       *
+       * @param string text
+       * @return string
+       */
+      function textToTable(text) {
+          // |, tab or multiple spaces will be taken as column delimiter
+          let output = '';
+          let rowOutput = '';
+          let rows = [];
+          let columns = [];
+          let columnLengths = [];
+          let maxColumnLengths = [];
+
+          // Split each line into columns and calc max width for each column
+          let lines = text.trim().split("\n");
+          lines.forEach(function (line, lineIndex) {
+              // To prevent confusion, trim spaces around existing "|" before converting multiple spaces to "|"
+              line = line.trim();
+              line = line.replace(/(\t|\s)*\|(\t|\s)*/gi, '|');
+              line = line.replace(/(\t|\s{2,})/gi, '|');
+              columns = line.split('|').map(val => val.trim());
+              rows.push(columns);
+
+              columnLengths = columns.map(val => val.length);
+              columnLengths.forEach(function (colLen, colIndex) {
+                  maxColumnLengths[colIndex] = Math.max(colLen, maxColumnLengths[colIndex] || 0);
+              });
+          });
+
+          // Go thru each row and pad columns to align them
+          rows.forEach(function (row, rowIndex) {
+              row.forEach(function (col, colIndex) {
+                  row[colIndex] = row[colIndex].padEnd(maxColumnLengths[colIndex] || 0, ' ');
+              })
+
+              rowOutput = '| ' + row.join(' | ') + ' |';
+              if (0 === rowIndex) { // insert separator row after header row
+                  let separatorRow = [];
+                  maxColumnLengths.forEach(function (maxColLen, maxColIndex) {
+                      separatorRow.push('-'.repeat(maxColumnLengths[maxColIndex] || 0));
+                  })
+
+                  rowOutput += "\n" + '|-' + separatorRow.join('-|-') + '-|';
+              }
+
+              output += rowOutput + "\n";
+          });
+
+          return output;
+      }
+    </script>
+  </body>
+</html>
