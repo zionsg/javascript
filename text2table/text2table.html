@@ -11,6 +11,20 @@
   <head>
     <meta charset="utf-8">
     <title>Text to Table</title>
+
+    <style>
+      html,
+      body {
+        font-family: monospace;
+        font-size: 16px;
+      }
+
+      button,
+      textarea {
+        font-family: monospace;
+        font-size: 1em;
+      }
+    </style>
   </head>
 
   <body>
@@ -18,12 +32,13 @@
 
     <ul>
       <li>1st line assumed to be header row.</li>
-      <li>Each line becomes a row.</li>
-      <li>|, tab or multiple spaces will be taken as column delimiter.</li>
+      <li>Each line becomes a row. Blank lines are ignored.</li>
+      <li><code>\n</code>, if any, will be taken as a row delimiter.</li>
+      <li><code>|</code>, tab or multiple spaces will be taken as column delimiter.</li>
     </ul>
 
     <b>INPUT TEXT:</b><br>
-    <textarea id="text" rows="25" cols="100"></textarea>
+    <textarea id="text" rows="10" cols="100"></textarea>
     <br><br>
 
     <button id="convert" onclick="convert();">Convert</button><br><br>
@@ -42,7 +57,8 @@
               Type    vCPU    ECU    Memory (GiB)    Instance Storage (GB)    Linux/UNIX Usage
               t3.2xlarge    8    Variable    32 GiB    EBS Only    $0.4224 per Hour
               m5.2xlarge    8    31    32 GiB    EBS Only    $0.48 per Hour
-              c5.2xlarge  |8  |  34    |16 GiB  ${tab}  EBS Only  |    $0.392 per Hour
+
+              c5.2xlarge  |8  |  34| 16 GiB${tab}EBS Only${tab}| ${tab}   $0.392 per Hour\\nTestRow
           `.trim();
 
           convert();
@@ -54,7 +70,7 @@
        * @return void
        */
       function convert() {
-          let text = document.getElementById('text').value;
+          let text = document.getElementById('text').value.trim();
           let result = textToTable(text);
 
           console.log(result);
@@ -73,19 +89,28 @@
           let rowOutput = '';
           let rows = [];
           let columns = [];
+          let columnCount = 0;
           let columnLengths = [];
           let maxColumnLengths = [];
 
           // Split each line into columns and calc max width for each column
+          text = text.trim().replace(/\\n/g, String.fromCharCode(10));
           let lines = text.trim().split("\n");
           lines.forEach(function (line, lineIndex) {
-              // To prevent confusion, trim spaces around existing "|" before converting multiple spaces to "|"
+              // Ignore blank lines
               line = line.trim();
+              if ('' === line) {
+                  return;
+              }
+
+              // To prevent confusion, trim spaces around existing "|" before converting multiple spaces to "|"
               line = line.replace(/(\t|\s)*\|(\t|\s)*/gi, '|');
               line = line.replace(/(\t|\s{2,})/gi, '|');
               columns = line.split('|').map(val => val.trim());
               rows.push(columns);
 
+              // Compute max length for each column
+              columnCount = Math.max(columnCount, columns.length); // some rows may have less columns
               columnLengths = columns.map(val => val.length);
               columnLengths.forEach(function (colLen, colIndex) {
                   maxColumnLengths[colIndex] = Math.max(colLen, maxColumnLengths[colIndex] || 0);
@@ -97,6 +122,9 @@
               row.forEach(function (col, colIndex) {
                   row[colIndex] = row[colIndex].padEnd(maxColumnLengths[colIndex] || 0, ' ');
               })
+              for (let i = row.length; i < columnCount; i++) { // fill up missing columns if any
+                  row[i] = ' '.padEnd(maxColumnLengths[i] || 0, ' ');
+              }
 
               rowOutput = '| ' + row.join(' | ') + ' |';
               if (0 === rowIndex) { // insert separator row after header row
@@ -116,3 +144,4 @@
     </script>
   </body>
 </html>
+
