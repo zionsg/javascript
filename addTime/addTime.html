@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Add Time</title>
+
+    <style>
+      html,
+      body {
+        font-family: monospace;
+        font-size: 16px;
+      }
+
+      button,
+      textarea {
+        font-family: monospace;
+        font-size: 1em;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h3>Add Time</h3>
+
+    <ul>
+      <li>This program only adds up hours and minutes.</li>
+      <li>
+        Each line is taken as 1 time entry. If it contains only 1 number, it's assumed as minutes.
+        If it contains 2 numbers, the numbers will be treated as hours and minutes.
+      </li>
+      <li>Blank lines and lines without digits will be ignored.</li>
+    </ul>
+
+    <b>INPUT TEXT:</b><br>
+    <textarea id="text" rows="15" cols="80"></textarea>
+    <br><br>
+
+    <button id="process" onclick="process();">Add up time entries</button><br><br>
+
+    <b>RESULT:</b>
+    <pre><div id="result"></div></pre><br><br>
+
+    <script>
+      /**
+       * Onload listener to load sample text
+       */
+      window.addEventListener('load', function (event) {
+          document.getElementById('text').value = `
+              1h - this will be read as one minute not one hour cos only one number
+              45m
+              1h 45m
+              2 hours 30 minutes
+              3:15
+              90 - this will be read as ninety minutes
+              48 0 - this will be read as forty-eight hours and zero minutes
+              This line and the next two will be ignored as they have no digits.
+
+              The following will all be read as an hour five mins.
+              1.5
+              1/5
+              1*5
+              -1-5
+              1+5
+          `.replace(/[ ]{2,}/g, '').trim();
+
+          process();
+      });
+
+      /**
+       * Process input text
+       *
+       * @return void
+       */
+      function process() {
+          let text = document.getElementById('text').value.trim();
+          let result = addTime(text);
+
+          console.log(result.replace(/<br>/g, "\n"));
+          document.getElementById('result').innerHTML = result;
+      }
+
+      /**
+       * Add up time entries
+       *
+       * @param string text
+       * @return string
+       */
+      function addTime(text) {
+          let result = 'Entries:<br>';
+          let totalMins = 0;
+
+          // Split each line into hours and minutes
+          let lines = text.trim().split("\n");
+          lines.forEach(function (line) {
+              // Ignore blank lines
+              line = line.trim();
+              if ('' === line) {
+                  return;
+              }
+
+              // Find hours and minutes parts
+              let matches = line.match(/[^0-9]*([0-9]+)[^0-9]*([0-9]+)?[^0-9]*/);
+              if (!matches) {
+                  return;
+              }
+
+              let hrs = matches[1];
+              let mins = matches[2];
+              if (undefined === mins) {
+                  mins = hrs;
+                  hrs = 0;
+              }
+
+              result += `${hrs}h ${mins}m<br>`;
+              totalMins += (parseInt(hrs) * 60) + parseInt(mins);
+          });
+
+          // Break up into days, hours, minutes
+          let days = Math.floor(totalMins / 1440);
+          let hrs = Math.floor((totalMins - (days * 1440)) / 60);
+          let mins = totalMins - (days * 1440) - (hrs * 60);
+
+          let totalHrs = (days * 24) + hrs;
+          result += '<br>Sum in different formats:<br>'
+              + `${days}d ${hrs}h ${mins}m<br>`
+              + (totalMins / 1440).toFixed(2) + ' days<br>'
+              + `${totalHrs}h ${mins}m<br>`
+              + (totalMins / 60).toFixed(2) + ' hrs<br>'
+              + `${totalMins} mins<br>`;
+
+          return result;
+      }
+    </script>
+  </body>
+</html>
