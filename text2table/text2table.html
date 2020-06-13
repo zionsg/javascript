@@ -1,13 +1,5 @@
 <!DOCTYPE html>
 <html>
-  <!--
-  /**
-   * Convert text to ASCII/Markdown table
-   *
-   * @link [Source] https://github.com/zionsg/javascript/tree/master/text2table
-   */
-  -->
-
   <head>
     <meta charset="utf-8">
     <title>Text to Table</title>
@@ -24,6 +16,13 @@
         font-family: monospace;
         font-size: 1em;
       }
+
+      #result-clipboard {
+        /* to facilitate copying to clipboard - cannot set display:none or visibility:hidden else cannot work */
+        height: 1px;
+        opacity: 0;
+        width: 1px;
+      }
     </style>
   </head>
 
@@ -34,19 +33,39 @@
       <li>1st line assumed to be header row.</li>
       <li>Each line becomes a row. Blank lines are ignored.</li>
       <li><code>\n</code>, if any, will be taken as a row delimiter.</li>
-      <li><code>|</code>, tab or multiple spaces will be taken as column delimiter.</li>
+      <li>
+        <code>|</code>, tab or multiple spaces will be taken as column delimiter.
+        Tabs usually occur as a result of copying cells from Excel.
+      </li>
+      <li>
+        To cater for importing of converted tables, <code>|</code> at the beginning and end of lines will be removed,
+        as well as horizontal dividers, if any.
+      </li>
+      <li>
+        This script can also convert a HTML <code>&lt;table&gt;</code> to an ASCII table - just paste the HTML code in
+        the input and tick "Input text is HTML <code>&lt;table&gt;</code>".
+      </li>
     </ul>
 
     <b>INPUT TEXT:</b><br>
     <textarea id="text" rows="10" cols="100"></textarea>
     <br><br>
 
+    <input id="is-html-table" type="checkbox" /> Input text is HTML <code>&lt;table&gt;</code><br>
+    <input id="has-footer-row" type="checkbox" /> Last line is footer row<br>
+    Insert divider every X rows after header row: <input id="rows-per-section" type="numeric" value="0" /><br><br>
     <button id="convert" onclick="convert();">Convert</button><br><br>
 
-    <b>RESULT:</b>
+    <b>RESULT (copied to clipboard):</b>
+    <textarea id="result-clipboard"></textarea>
     <pre><div id="result"></div></pre><br><br>
 
     <script>
+      const BLANK_CHAR = ' ';
+      const BLANK_PLACEHOLDER = '%BLANK%';
+      const PIPE_CHAR = '|';
+      const PIPE_PLACEHOLDER = '%PIPE%';
+
       /**
        * Onload listener to load sample text
        */
@@ -54,38 +73,80 @@
           let tab = String.fromCharCode(9);
 
           document.getElementById('text').value = `
-              Type    vCPU    ECU    Memory (GiB)    Instance Storage (GB)    Linux/UNIX Usage
+| Type | vCPU | ECU | Memory (GiB) | Instance Storage (GB) | Linux/UNIX Usage |
+|------|------|-----|--------------|-----------------------|------------------|
               t3.2xlarge    8    Variable    32 GiB    EBS Only    $0.4224 per Hour
               m5.2xlarge    8    31    32 GiB    EBS Only    $0.48 per Hour
 
-              c5.2xlarge  |8  |  34| 16 GiB${tab}EBS Only${tab}| ${tab}   $0.392 per Hour\\nTestRow
+              c5.2xlarge  |8  |  34| 16 GiB${tab}EBS Only  ${tab}   $0.392 per Hour\\nTestRow
           `.trim();
 
           convert();
+          document.getElementById('text').focus();
       });
 
       /**
        * Parse input text
        *
-       * @return void
+       * @returns {void}
        */
       function convert() {
-          let text = document.getElementById('text').value.trim();
-          let result = textToTable(text);
+          let textElement = document.getElementById('text');
+          let text = textElement.value.trim();
+          let isHtmlTable = document.getElementById('is-html-table').checked;
+          let hasFooterRow = document.getElementById('has-footer-row').checked;
+          let rowsPerSection = Math.max(0, parseInt(document.getElementById('rows-per-section').value)); // no -ve nos.
 
+          // If input is HTML <table>, convert to text first
+          if (isHtmlTable) {
+              let parser = new DOMParser();
+              let html = parser.parseFromString(text, 'text/html');
+              let htmlRows = html.querySelectorAll('tr');
+
+              let rows = [];
+              let pipeRegex = new RegExp('\\' + PIPE_CHAR, 'g'); // must escape pipe char
+              html.querySelectorAll('tr').forEach(function (htmlRow) {
+                  let row = [];
+
+                  htmlRow.querySelectorAll('th, td').forEach(function (htmlCol) {
+                      // 1st column in AWS tables have checkboxes which yield no text, hence put blank placeholder
+                      // (cannot put space cos leading/trailing spaces are trimmed)
+                      // Columns in AWS tables sometimes have "|" in their text, hence replace with placeholder first
+                      let colText = htmlCol.innerText.trim() || BLANK_PLACEHOLDER;
+                      colText = colText.replace(pipeRegex, PIPE_PLACEHOLDER);
+                      row.push(colText);
+                  });
+                  rows.push(row.join("\t"));
+              });
+              text = rows.join("\n");
+          }
+
+          // Output result
+          let result = textToTable(text, hasFooterRow, rowsPerSection, isHtmlTable);
+          document.getElementById('result').innerHTML = result;
           console.log(result);
-          document.getElementById('result').innerHTML = textToTable(text);
+
+          // Copy to clipboard
+          let resultClipboard = document.getElementById('result-clipboard');
+          resultClipboard.value = result;
+          resultClipboard.select();
+          resultClipboard.setSelectionRange(0, 99999); // for mobile devices
+          document.execCommand('copy');
+          textElement.focus(); // set focus back to input textarea
       }
 
       /**
        * Convert text to table
        *
-       * @param string text
-       * @return string
+       * @param {string} text
+       * @param {boolean} hasFooterRow - If true, divider will be inserted before last row.
+       * @param {int} rowsPerSection - If positive, divider will be inserted every X rows after header.
+       * @param {boolean} isHtmlTable - Whether input text is an HTMl <table>.
+       * @returns {string}
        */
-      function textToTable(text) {
+      function textToTable(text, hasFooterRow, rowsPerSection, isHtmlTable) {
           // |, tab or multiple spaces will be taken as column delimiter
-          let output = '';
+          let resultRows = [];
           let rowOutput = '';
           let rows = [];
           let columns = [];
@@ -96,28 +157,60 @@
           // Split each line into columns and calc max width for each column
           text = text.trim().replace(/\\n/g, String.fromCharCode(10));
           let lines = text.trim().split("\n");
+          let blankRegex = new RegExp(BLANK_PLACEHOLDER, 'g');
+          let pipeRegex = new RegExp(PIPE_PLACEHOLDER, 'g');
           lines.forEach(function (line, lineIndex) {
+              // Replace tabs with | before trimming else empty cells copied from Excel will be trimmed out
+              line = line.replace(/\t/gi, '|').trim();
+
+              // Cater for imported tables which will have | at the beginning and the end (not beginning or end cos
+              // may be a result of copying empty cell from Excel) - remove these | first
+              if (line.match(/^\|.*\|$/)) {
+                  line = line.replace(/^\||\|$/g, '').trim();
+              }
+
               // Ignore blank lines
-              line = line.trim();
               if ('' === line) {
                   return;
               }
 
-              // To prevent confusion, trim spaces around existing "|" before converting multiple spaces to "|"
-              line = line.replace(/(\t|\s)*\|(\t|\s)*/gi, '|');
-              line = line.replace(/(\t|\s{2,})/gi, '|');
-              columns = line.split('|').map(val => val.trim());
+              // Ignore dividers which consists only of |, + and -
+              if (line.match(/^[\|\+\-]+$/)) {
+                  return;
+              }
+
+              // To prevent confusion, trim spaces around existing "|" before converting multiple spaces to "|" but not
+              // tabs else empty cells copied from Excel will be removed
+              line = line.replace(/\s*\|\s*/gi, '|');
+              line = line.replace(/\s{2,}/gi, '|'); // replace multiple spaces
+              columns = line.split('|').map((value) => value.trim());
+
+              // Replace pipe placeholders
+              if (isHtmlTable) {
+                  columns = columns.map((value) => value.replace(blankRegex, BLANK_CHAR));
+                  columns = columns.map((value) => value.replace(pipeRegex, PIPE_CHAR));
+              }
               rows.push(columns);
 
               // Compute max length for each column
               columnCount = Math.max(columnCount, columns.length); // some rows may have less columns
-              columnLengths = columns.map(val => val.length);
+              columnLengths = columns.map((value) => value.length);
               columnLengths.forEach(function (colLen, colIndex) {
                   maxColumnLengths[colIndex] = Math.max(colLen, maxColumnLengths[colIndex] || 0);
               });
           });
 
+          // Divider line
+          let dividerRow = [];
+          let divider = '';
+          maxColumnLengths.forEach(function (maxColLen, maxColIndex) {
+              dividerRow.push('-'.repeat(maxColumnLengths[maxColIndex] || 0));
+          })
+          divider = '+-' + dividerRow.join('-+-') + '-+';
+          resultRows.push(divider);
+
           // Go thru each row and pad columns to align them
+          let rowCnt = rows.length;
           rows.forEach(function (row, rowIndex) {
               row.forEach(function (col, colIndex) {
                   row[colIndex] = row[colIndex].padEnd(maxColumnLengths[colIndex] || 0, ' ');
@@ -126,22 +219,24 @@
                   row[i] = ' '.padEnd(maxColumnLengths[i] || 0, ' ');
               }
 
-              rowOutput = '| ' + row.join(' | ') + ' |';
-              if (0 === rowIndex) { // insert separator row after header row
-                  let separatorRow = [];
-                  maxColumnLengths.forEach(function (maxColLen, maxColIndex) {
-                      separatorRow.push('-'.repeat(maxColumnLengths[maxColIndex] || 0));
-                  })
+              // Append row output to result
+              resultRows.push('| ' + row.join(' | ') + ' |');
 
-                  rowOutput += "\n" + '|-' + separatorRow.join('-|-') + '-|';
+              // Insert divider
+              let insertDivider = (0 === rowIndex) // header row
+                  || (hasFooterRow && rowIndex == (rowCnt - 2)) // row before footer row
+                  || (rowsPerSection > 0 && 0 === rowIndex % rowsPerSection); // section
+              if (insertDivider) {
+                  resultRows.push(divider);
               }
-
-              output += rowOutput + "\n";
           });
 
-          return output;
+          if (resultRows[resultRows.length - 1] !== divider) {
+              resultRows.push(divider);
+          }
+
+          return resultRows.join("\n");
       }
     </script>
   </body>
 </html>
-
