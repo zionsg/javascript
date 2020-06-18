@@ -54,7 +54,9 @@ const utils = (function () {
      * @public
      * @link https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest
      * @param {string} url
-     * @param {function(ApiResponse): void} callback - Callback listener to receive response.
+     * @param {function(ApiResponse): void} callback - Callback listener to receive response which
+     *                                                 is same type as the return result from
+     *                                                 createApiResponse().
      * @param {boolean} withCredentials - Default=false. Whether to set
      *                                    XMLHttpRequest.withCredentials to true. Should only be
      *                                    true for API calls that need to send cookies.
@@ -81,7 +83,7 @@ const utils = (function () {
             if (XMLHttpRequest.DONE === request.readyState) {
                 // Store status code and compute time taken
                 response.meta.statusCode = parseInt(request.status);
-                response.meta.timeTakenMs = (Date.now()) - startTime;
+                response.meta.timeTakenMs = Date.now() - startTime;
 
                 // Get the raw header string, convert to array and save in response
                 let responseHeaders = request.getAllResponseHeaders();
