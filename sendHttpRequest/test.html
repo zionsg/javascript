@@ -1,0 +1,10 @@
+<script src="sendHttpRequest.js"></script>
+
+<script>
+  utils.sendHttpRequest(
+      'https://jsonplaceholder.typicode.com/todos/1',
+      function (response) {
+          console.log(response);
+      }
+  );
+</script>
