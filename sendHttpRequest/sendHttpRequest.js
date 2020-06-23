@@ -76,7 +76,6 @@ const utils = (function () {
         // Init request, response and timer
         let request = new XMLHttpRequest();
         let response = self.createApiResponse();
-        let res2 = self.createApiResponse();
         let startTime = Date.now(); // milliseconds
 
         request.onreadystatechange = function () {
