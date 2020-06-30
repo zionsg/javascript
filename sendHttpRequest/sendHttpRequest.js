@@ -149,6 +149,9 @@ const utils = (function () {
         if (null === headers) {
             headers = {};
         }
+        if ('POST' === method) {
+            headers['Content-Type'] = 'application/json; charset=utf-8'; // must set for POST
+        }
         headers['Accept'] = 'application/json';
         Object.keys(headers).forEach(function (key) {
             request.setRequestHeader(key, headers[key]);
