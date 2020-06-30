@@ -1,10 +1,13 @@
 <script src="sendHttpRequest.js"></script>
 
 <script>
-  utils.sendHttpRequest(
-      'https://jsonplaceholder.typicode.com/todos/1',
-      function (response) {
-          console.log(response);
-      }
-  );
+  let validUrl = 'https://jsonplaceholder.typicode.com/todos/1';
+  utils.sendHttpRequest(validUrl, function (response) {
+      console.log(validUrl, response);
+  });
+
+  let invalidUrl = 'https://example.com';
+  utils.sendHttpRequest(invalidUrl, function (response) {
+      console.log(invalidUrl, response);
+  });
 </script>

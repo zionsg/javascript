@@ -26,8 +26,8 @@ const utils = (function () {
      *     @property {object} body - Parsed body of response as JSON object.
      *   @property {(null|object)} error - Error information, null if success response.
      *     @property {string} error.message - Error message.
-     *     @property {string} error.body - Original raw body of response.
-     *     @property {(null|object)} error.parsedBody - Parsed body of response as JSON object.
+     *     @property {(null|object)} error.body - Parsed body of response as JSON object, if any.
+     *     @property {string} error.rawBody - Original raw body of response.
      *   @property {(null|object)} meta - Metadata for response.
      *     @property {int} meta.statusCode - HTTP status code of response.
      *     @property {(null|object)} meta.headers - HTTP headers for response.
@@ -98,20 +98,22 @@ const utils = (function () {
                 }
 
                 // Try to parse body of response as JSON
-                let body = request.response;
+                let rawBody = request.response;
                 let parsedBody = null;
                 let parseErrorMessage = '';
                 try {
                     // Parse manually cos IE11 don't support responseType
-                    parsedBody = JSON.parse(body);
+                    parsedBody = JSON.parse(rawBody);
                 } catch (err) {
                     parsedBody = null;
                     parseErrorMessage = err.message;
+                    response.meta.statusCode = 406; // server response does not match Accept header
                 }
 
                 // Check if success or error response
                 if (parsedBody && response.meta.statusCode < 400) {
-                    // Success response
+                    // Success response. `data` not set to parsedBody in case the latter is not an
+                    // object, e.g. []. `data` must always be null or an object.
                     response.error = null;
                     response.data = {
                         body: parsedBody
@@ -121,8 +123,8 @@ const utils = (function () {
                     response.data = null;
                     response.error = {
                         message: parseErrorMessage || request.statusText,
-                        body: body, // raw body
-                        parsedBody: parsedBody
+                        body: parsedBody,
+                        rawBody: rawBody
                     };
                 }
 
@@ -133,7 +135,7 @@ const utils = (function () {
 
                 return;
             }
-        };
+        }; // end of onreadystatechange
 
         // Open request
         // request.responseType = 'json'; // IE11 does not support this
@@ -160,8 +162,8 @@ const utils = (function () {
             response.data = null;
             response.error = {
                 message: err.message,
-                body: '',
-                parsedBody: null
+                body: null,
+                rawBody: ''
             };
 
             if ('function' === typeof callback) {
