@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Text to Table</title>
+    <title>Text to Table and CSV</title>
 
     <style>
       html,
@@ -27,7 +27,7 @@
   </head>
 
   <body>
-    <h3>Convert text to ASCII/Markdown table</h3>
+    <h3>Convert text to ASCII/Markdown table and CSV</h3>
 
     <ul>
       <li>1st line assumed to be header row.</li>
@@ -56,9 +56,14 @@
     Insert divider every X rows after header row: <input id="rows-per-section" type="numeric" value="0" /><br><br>
     <button id="convert" onclick="convert();">Convert</button><br><br>
 
-    <b>RESULT (copied to clipboard):</b>
+    <b>RESULT IN TABLE FORMAT (copied to clipboard):</b>
     <textarea id="result-clipboard"></textarea>
-    <pre><div id="result"></div></pre><br><br>
+    <pre><div id="result-table"></div></pre>
+    <p>&nbsp;</p>
+
+    <b>RESULT IN CSV FORMAT:</b>
+    <pre><div id="result-csv"></div></pre>
+    <p>&nbsp;</p>
 
     <script>
       const BLANK_CHAR = ' ';
@@ -78,7 +83,7 @@
               t3.2xlarge    8    Variable    32 GiB    EBS Only    $0.4224 per Hour
               m5.2xlarge    8    31    32 GiB    EBS Only    $0.48 per Hour
 
-              c5.2xlarge  |8  |  34| 16 GiB${tab}EBS Only  ${tab}   $0.392 per Hour\\nTestRow
+              c5.2xlarge  |8  |  34| 16 GiB${tab}EBS Only  ${tab}   $0.392 per Hour\\nTestRow "hi",!
           `.trim();
 
           convert();
@@ -123,8 +128,10 @@
 
           // Output result
           let result = textToTable(text, hasFooterRow, rowsPerSection, isHtmlTable);
-          document.getElementById('result').innerHTML = result;
-          console.log(result);
+          document.getElementById('result-table').innerHTML = result.table;
+          console.log(result.table);
+          document.getElementById('result-csv').innerHTML = result.csv;
+          console.log(result.csv);
 
           // Copy to clipboard
           let resultClipboard = document.getElementById('result-clipboard');
@@ -142,7 +149,7 @@
        * @param {boolean} hasFooterRow - If true, divider will be inserted before last row.
        * @param {int} rowsPerSection - If positive, divider will be inserted every X rows after header.
        * @param {boolean} isHtmlTable - Whether input text is an HTML <table>.
-       * @returns {string}
+       * @returns object { table: <result in table format>, csv: <result in CSV format> }
        */
       function textToTable(text, hasFooterRow, rowsPerSection, isHtmlTable) {
           // |, tab or multiple spaces will be taken as column delimiter
@@ -209,12 +216,19 @@
           divider = '+-' + dividerRow.join('-+-') + '-+';
           resultRows.push(divider);
 
-          // Go thru each row and pad columns to align them
+          // Create tabular format
           let rowCnt = rows.length;
+          let csvResultRows = [];
           rows.forEach(function (row, rowIndex) {
+              let csvRow = [];
+
+              // Go thru each row and pad columns to align them
               row.forEach(function (col, colIndex) {
                   row[colIndex] = row[colIndex].padEnd(maxColumnLengths[colIndex] || 0, ' ');
-              })
+
+                  csvRow.push('"' + col.trim().replace(/"/g, '""') + '"');
+              });
+              csvResultRows.push(csvRow.join(','));
               for (let i = row.length; i < columnCount; i++) { // fill up missing columns if any
                   row[i] = ' '.padEnd(maxColumnLengths[i] || 0, ' ');
               }
@@ -235,7 +249,10 @@
               resultRows.push(divider);
           }
 
-          return resultRows.join("\n");
+          return {
+              table: resultRows.join("\n"),
+              csv: csvResultRows.join("\n")
+          };
       }
     </script>
   </body>
