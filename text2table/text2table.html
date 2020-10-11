@@ -1,5 +1,8 @@
 <!DOCTYPE html>
 <html>
+  <!--
+  @link https://github.com/zionsg/javascript/tree/master/text2table
+  -->
   <head>
     <meta charset="utf-8">
     <title>Text to Table and CSV</title>
@@ -61,7 +64,7 @@
     <pre><div id="result-table"></div></pre>
     <p>&nbsp;</p>
 
-    <b>RESULT IN CSV FORMAT:</b>
+    <b>RESULT IN CSV FORMAT (downloaded as file):</b>
     <pre><div id="result-csv"></div></pre>
     <p>&nbsp;</p>
 
@@ -126,7 +129,7 @@
               text = rows.join("\n");
           }
 
-          // Output result
+          // Output result to page
           let result = textToTable(text, hasFooterRow, rowsPerSection, isHtmlTable);
           document.getElementById('result-table').innerHTML = result.table;
           console.log(result.table);
@@ -135,11 +138,17 @@
 
           // Copy to clipboard
           let resultClipboard = document.getElementById('result-clipboard');
-          resultClipboard.value = result;
+          resultClipboard.value = result.table;
           resultClipboard.select();
           resultClipboard.setSelectionRange(0, 99999); // for mobile devices
           document.execCommand('copy');
           textElement.focus(); // set focus back to input textarea
+
+          // Download CSV file
+          let element = document.createElement('a');
+          element.setAttribute('href', 'data:text/text;charset=utf-8,' + encodeURI(result.csv));
+          element.setAttribute('download', 'text2table-' + Date.now() + '.csv');
+          element.click();
       }
 
       /**
@@ -225,13 +234,13 @@
               // Go thru each row and pad columns to align them
               row.forEach(function (col, colIndex) {
                   row[colIndex] = row[colIndex].padEnd(maxColumnLengths[colIndex] || 0, ' ');
-
                   csvRow.push('"' + col.trim().replace(/"/g, '""') + '"');
               });
-              csvResultRows.push(csvRow.join(','));
               for (let i = row.length; i < columnCount; i++) { // fill up missing columns if any
                   row[i] = ' '.padEnd(maxColumnLengths[i] || 0, ' ');
+                  csvRow.push('""');
               }
+              csvResultRows.push(csvRow.join(','));
 
               // Append row output to result
               resultRows.push('| ' + row.join(' | ') + ' |');
