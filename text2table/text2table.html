@@ -89,16 +89,21 @@
               c5.2xlarge  |8  |  34| 16 GiB${tab}EBS Only  ${tab}   $0.392 per Hour\\nTestRow "hi",!
           `.trim();
 
-          convert();
+          convert(false); // do not download CSV file for demo text
           document.getElementById('text').focus();
       });
 
       /**
        * Parse input text
        *
+       * @param {boolean} downloadCsvFile Default=true. Whether to download CSV result as file.
        * @returns {void}
        */
-      function convert() {
+      function convert(downloadCsvFile) {
+          if (undefined === downloadCsvFile) { // IE11 does not allow parameter defaults hence this
+              downloadCsvFile = true;
+          }
+
           let textElement = document.getElementById('text');
           let text = textElement.value.trim();
           let isHtmlTable = document.getElementById('is-html-table').checked;
@@ -145,10 +150,12 @@
           textElement.focus(); // set focus back to input textarea
 
           // Download CSV file
-          let element = document.createElement('a');
-          element.setAttribute('href', 'data:text/text;charset=utf-8,' + encodeURI(result.csv));
-          element.setAttribute('download', 'text2table-' + Date.now() + '.csv');
-          element.click();
+          if (downloadCsvFile) {
+              let element = document.createElement('a');
+              element.setAttribute('href', 'data:text/text;charset=utf-8,' + encodeURI(result.csv));
+              element.setAttribute('download', 'text2table-' + Date.now() + '.csv');
+              element.click();
+          }
       }
 
       /**
