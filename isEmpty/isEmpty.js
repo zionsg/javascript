@@ -1,23 +1,19 @@
-function isEmpty(x) {
-    // (null == x) checks for both (null === x) and (undefined === x)
-    // ('null' === x) is to cater for null in JSON cast to "null"
-    if (!x || null == x || 'null' === x) {
+function isEmpty(value) {
+    // (null == value) checks for both (null === value) and (undefined === value)
+    // ('null' === value) is to cater for null in JSON cast to string "null"
+    if (!value || null == value || 'null' === value) {
         return true;
     }
 
-    if (x instanceof Array) {
-        return (0 === x.length);
+    // [] not considered empty, hence check length. Note that arrays are specialized objects.
+    if (value instanceof Array) {
+        return (0 === value.length);
     }
 
-    if (typeof x === 'object') {
-        for (var prop in x) {
-            if (x.hasOwnProperty(prop)) {
-                return false;
-            }
-        }
-
-        return true;
+    // {} not considered empty, hence check number of keys
+    if (value instanceof Object) {
+        return (0 === Object.keys(value).length);
     }
 
-    return false;
+    return false; // considered non-empty if cannot resolve
 }
