@@ -1,34 +1,50 @@
 <script src="throttledRequest.js"></script>
 <script>
-    for (let i = 1; i <= 20; i++) {
-        let tag = `Request ${i}`;
-        let start = Date.now();
-        let method = 'GET';
-        let url = 'https://jsonplaceholder.typicode.com/todos/1';
+    let method = 'GET';
+    let url = 'https://jsonplaceholder.typicode.com/todos/1';
+    let log = function () {
+        console.log.apply(null, [(new Date).toISOString(), ...arguments]);
+    };
 
-        let type = (0 === i % 2) ? 'xhr' : 'fetch';
-        if ('fetch' === type) {
-            utils.fetch(
-                url,
-                { method: method },
-                () => console.log(`${tag} (${type}) sent after queued for ` + (Date.now() - start) + ' ms.')
-            );
-            // .then((res) => { console.log(`${tag} (${type}) response after ` + (Date.now() - start) + ' ms.'); })
-            // .catch((err) => { console.log(`${tag} (${type}) error`, err); });
-        } else if ('xhr' === type) {
-            let xhr = utils.XMLHttpRequest(() => {
-                console.log(`${tag} (${type}) sent after queued for ` + (Date.now() - start) + ' ms.');
-            });
-            // xhr.onreadystatechange = function () {
-            //     if (XMLHttpRequest.DONE === xhr.readyState) {
-            //         console.log(`${tag} (${type}) response after ` + (Date.now() - start) + ' ms.');
-            //     }
-            // };
-            // xhr.onerror = function () {
-            //     console.log(`${tag} (${type}) network error`);
-            // };
-            xhr.open(method, url);
-            xhr.send();
-        }
+    for (let i = 1; i <= 10; i++) {
+        // Artifical delay - use setTimeout() not while loop cos latter will block/delay previous requests from running
+        // Requests 6 & 7 will spend some time in the queue while requests 8 to 10 will be sent almost immediately
+        // Simulates user clicking fast for 7 times, then waiting for 2 secs before clicking fast for 3 more times
+        let delay = (i >= 8) ? 2000 : 0;
+        setTimeout(
+            function () {
+                let tag = `Request ${i}`;
+                let start = Date.now();
+                let type = (0 === i % 2) ? 'xhr' : 'fetch'; // alternate btw fetch() and XMLHttpRequest
+                log(`${tag} (${type}) queued.`);
+
+                if ('fetch' === type) {
+                    utils.fetch(
+                        url + `?request=${i}`,
+                        { method: method },
+                        () => log(`${tag} (${type}) sent after queued for ` + (Date.now() - start) + ' ms.')
+                    )
+                    .then((res) => {
+                        log(`${tag} (${type}) response after queued for ` + (Date.now() - start) + ' ms.');
+                    })
+                    .catch((err) => { log(`${tag} (${type}) error`, err); });
+                } else if ('xhr' === type) {
+                    let xhr = utils.XMLHttpRequest(() => {
+                        log(`${tag} (${type}) sent after queued for ` + (Date.now() - start) + ' ms.');
+                    });
+                    xhr.onreadystatechange = function () {
+                        if (XMLHttpRequest.DONE === xhr.readyState) {
+                            log(`${tag} (${type}) response after queued for ` + (Date.now() - start) + ' ms.');
+                        }
+                    };
+                    xhr.onerror = function () {
+                        log(`${tag} (${type}) network error`);
+                    };
+                    xhr.open(method, url + `?request=${i}`);
+                    xhr.send();
+                }
+            },
+            delay
+        );
     }
 </script>
