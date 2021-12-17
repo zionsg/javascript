@@ -108,22 +108,23 @@ const utils = (function () {
             // Call the deferred function, fulfilling the wrapper Promise
             // with whatever results and logging the completion time
             let p = request.fn.apply(request.caller, request.args);
-            Promise.resolve(p).then(
-                (result) => {
-                    request.resolve(result);
-                },
-                (error) => {
-                    request.reject(error);
-                }
-            )
-            .then(() => {
-                ajaxRequestInflight--;
-                ajaxRequestCompleted.push(Date.now());
+            Promise.resolve(p)
+                .then(
+                    (result) => {
+                        request.resolve(result);
+                    },
+                    (error) => {
+                        request.reject(error);
+                    }
+                )
+                .then(() => {
+                    ajaxRequestInflight--;
+                    ajaxRequestCompleted.push(Date.now());
 
-                if (ajaxRequestQueue.length && 1 === ajaxRequestCompleted.length) {
-                    setTimeout(ajaxProcessQueue, AJAX_REQUEST_LIMIT_PERIOD_MS);
-                }
-            });
+                    if (ajaxRequestQueue.length && 1 === ajaxRequestCompleted.length) {
+                        setTimeout(ajaxProcessQueue, AJAX_REQUEST_LIMIT_PERIOD_MS);
+                    }
+                });
         } // end while
 
         // Check the queue on the next expiration
