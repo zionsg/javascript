@@ -27,6 +27,7 @@ const utils = (function () {
         // Return a Promise like the original fetch() which actually queues the request
         return new Promise((resolve, reject) => {
             ajaxRequestQueue.push({
+                type: 'fetch',
                 caller: null, // must set to null else cannot work, cos no instance of anything
                 fn: fetch,
                 args: [resource, init],
@@ -55,6 +56,7 @@ const utils = (function () {
             // Have to return Promise else queue cannot resolve result
             return new Promise((resolve, reject) => {
                 ajaxRequestQueue.push({
+                    type: 'xhr',
                     caller: xhr, // must pass itself else cannot work
                     fn: XMLHttpRequest.prototype.send, // original send
                     args: [body],
@@ -105,16 +107,38 @@ const utils = (function () {
                 startFn();
             }
 
+            // Set up AbortController to abort Fetch request after 1 second, else if browser disconnects
+            // resulting in ECONNREST error on server side, the caller will be left hanging
+            // See https://developer.mozilla.org/en-US/docs/Web/API/AbortController
+            let requestTimeoutId = 0;
+            if ('fetch' === request.type) {
+                let abortController = new AbortController();
+                requestTimeoutId = window.setTimeout(() => abortController.abort(), 1000);
+                request.args[1].signal = abortController.signal; // modify options for Fetch
+            }
+
             // Call the deferred function, fulfilling the wrapper Promise
             // with whatever results and logging the completion time
             let p = request.fn.apply(request.caller, request.args);
             Promise.resolve(p)
                 .then(
                     (result) => {
+                        if (requestTimeoutId) {
+                            window.clearTimeout(requestTimeoutId);
+                        }
+
                         request.resolve(result);
                     },
                     (error) => {
-                        request.reject(error);
+                        if (requestTimeoutId) {
+                            console.error('ajaxProcessQueue().then', error, 'Pushing request back to queue');
+                            window.clearTimeout(requestTimeoutId);
+                            ajaxRequestQueue.push(request); // put request back in queue
+                            window.setTimeout(ajaxProcessQueue, AJAX_REQUEST_LIMIT_PERIOD_MS); // schedule next check
+                        } else {
+                            console.error('ajaxProcessQueue().then', error);
+                            request.reject(error);
+                        }
                     }
                 )
                 .then(() => {
@@ -122,14 +146,25 @@ const utils = (function () {
                     ajaxRequestCompleted.push(Date.now());
 
                     if (ajaxRequestQueue.length && 1 === ajaxRequestCompleted.length) {
-                        setTimeout(ajaxProcessQueue, AJAX_REQUEST_LIMIT_PERIOD_MS);
+                        window.setTimeout(ajaxProcessQueue, AJAX_REQUEST_LIMIT_PERIOD_MS); // schedule next check
                     }
+                })
+                .catch((err) => {
+                    if (requestTimeoutId) {
+                        console.error('ajaxProcessQueue().catch', err, 'Pushing request back to queue');
+                        window.clearTimeout(requestTimeoutId);
+                        ajaxRequestQueue.push(request); // put request back in queue
+                    } else {
+                        console.error('ajaxProcessQueue().catch', err);
+                        request.reject(err);
+                    }
+
                 });
         } // end while
 
         // Check the queue on the next expiration
         if (ajaxRequestQueue.length && ajaxRequestCompleted.length) {
-            setTimeout(
+            window.setTimeout( // schedule next check
                 ajaxProcessQueue,
                 ajaxRequestCompleted[0] + AJAX_REQUEST_LIMIT_PERIOD_MS - now
             );
