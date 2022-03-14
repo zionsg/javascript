@@ -107,13 +107,13 @@ const utils = (function () {
                 startFn();
             }
 
-            // Set up AbortController to abort Fetch request after 1 second, else if browser disconnects
+            // Set up AbortController to abort Fetch request after 1 hour, else if browser disconnects
             // resulting in ECONNREST error on server side, the caller will be left hanging
             // See https://developer.mozilla.org/en-US/docs/Web/API/AbortController
             let requestTimeoutId = 0;
             if ('fetch' === request.type) {
                 let abortController = new AbortController();
-                requestTimeoutId = window.setTimeout(() => abortController.abort(), 1000);
+                requestTimeoutId = window.setTimeout(() => abortController.abort(), 60 * 60 * 1000);
                 request.args[1].signal = abortController.signal; // modify options for Fetch
             }
 
