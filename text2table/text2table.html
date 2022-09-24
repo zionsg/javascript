@@ -5,6 +5,7 @@
   -->
   <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Text to Table and CSV</title>
 
     <style>
@@ -14,10 +15,25 @@
         font-size: 16px;
       }
 
+      body {
+        padding: 0 10px;
+      }
+
+      code {
+        background-color: #f9f2f4;
+        color: #c7254e;
+        padding: 2px;
+      }
+
       button,
       textarea {
         font-family: monospace;
         font-size: 1em;
+      }
+
+      textarea {
+        height: 30vh;
+        width: 90vw;
       }
 
       #result-clipboard {
@@ -55,221 +71,287 @@
     <br><br>
 
     <input id="is-html-table" type="checkbox" /> Input text is HTML <code>&lt;table&gt;</code><br>
+    <input id="is-aws-cloudfront-log-format" type="checkbox" />
+        Input text uses AWS CloudFront log format (<code>timestamp-local</code> column will be added)<br>
     <input id="has-footer-row" type="checkbox" /> Last line is footer row<br>
     Insert divider every X rows after header row: <input id="rows-per-section" type="numeric" value="0" /><br><br>
     <button id="convert" onclick="convert();">Convert</button><br><br>
 
     <b>RESULT IN TABLE FORMAT (copied to clipboard):</b>
     <textarea id="result-clipboard"></textarea>
-    <pre><div id="result-table"></div></pre>
+    <pre id="result-table"></pre>
     <p>&nbsp;</p>
 
     <b>RESULT IN CSV FORMAT (downloaded as file):</b>
-    <pre><div id="result-csv"></div></pre>
+    <pre id="result-csv"></pre>
     <p>&nbsp;</p>
 
     <script>
-      const BLANK_CHAR = ' ';
-      const BLANK_PLACEHOLDER = '%BLANK%';
-      const PIPE_CHAR = '|';
-      const PIPE_PLACEHOLDER = '%PIPE%';
+        const BLANK_CHAR = ' ';
+        const BLANK_PLACEHOLDER = '%BLANK%';
+        const PIPE_CHAR = '|';
+        const PIPE_PLACEHOLDER = '%PIPE%';
 
-      /**
-       * Onload listener to load sample text
-       */
-      window.addEventListener('load', function (event) {
-          let tab = String.fromCharCode(9);
+        /**
+         * Onload listener to load sample text
+         */
+        window.addEventListener('load', function (event) {
+            let tab = String.fromCharCode(9);
 
-          document.getElementById('text').value = `
+            document.getElementById('text').value = `
 | Type | vCPU | ECU | Memory (GiB) | Instance Storage (GB) | Linux/UNIX Usage |
 +------+------+-----+--------------+-----------------------+------------------+
               t3.2xlarge    8    Variable    32 GiB    EBS Only    $0.4224 per Hour
               m5.2xlarge    8    31    32 GiB    EBS Only    $0.48 per Hour
 
               c5.2xlarge  |8  |  34| 16 GiB${tab}EBS Only  ${tab}   $0.392 per Hour\\nTestRow "hi",!
-          `.trim();
+            `.trim();
 
-          convert(false); // do not download CSV file for demo text
-          document.getElementById('text').focus();
-      });
+            convert(false); // do not download CSV file for demo text
+            document.getElementById('text').focus();
+        });
 
-      /**
-       * Parse input text
-       *
-       * @param {boolean} downloadCsvFile Default=true. Whether to download CSV result as file.
-       * @returns {void}
-       */
-      function convert(downloadCsvFile) {
-          if (undefined === downloadCsvFile) { // IE11 does not allow parameter defaults hence this
-              downloadCsvFile = true;
-          }
+        /**
+         * Parse input text
+         *
+         * @param {boolean} downloadCsvFile Default=true. Whether to download CSV result as file.
+         * @returns {void}
+         */
+        function convert(downloadCsvFile) {
+            if (undefined === downloadCsvFile) { // IE11 does not allow parameter defaults hence this
+                downloadCsvFile = true;
+            }
 
-          let textElement = document.getElementById('text');
-          let text = textElement.value.trim();
-          let isHtmlTable = document.getElementById('is-html-table').checked;
-          let hasFooterRow = document.getElementById('has-footer-row').checked;
-          let rowsPerSection = Math.max(0, parseInt(document.getElementById('rows-per-section').value)); // no -ve nos.
+            let textElement = document.getElementById('text');
+            let text = textElement.value.trim();
+            let isHtmlTable = document.getElementById('is-html-table').checked;
+            let isAwsCloudfrontLogFormat = document.getElementById('is-aws-cloudfront-log-format').checked;
+            let addTimestampLocalColumn = isAwsCloudfrontLogFormat;
+            let hasFooterRow = document.getElementById('has-footer-row').checked;
+            let rowsPerSection = Math.max(0, parseInt(document.getElementById('rows-per-section').value)); // no -ve nos.
 
-          // If input is HTML <table>, convert to text first
-          if (isHtmlTable) {
-              let parser = new DOMParser();
-              let html = parser.parseFromString(text, 'text/html');
-              let htmlRows = html.querySelectorAll('tr');
+            // If input is HTML <table>, convert to text first
+            if (isHtmlTable) {
+                let parser = new DOMParser();
+                let html = parser.parseFromString(text, 'text/html');
+                let htmlRows = html.querySelectorAll('tr');
 
-              let rows = [];
-              let pipeRegex = new RegExp('\\' + PIPE_CHAR, 'g'); // must escape pipe char
-              html.querySelectorAll('tr').forEach(function (htmlRow) {
-                  let row = [];
+                let rows = [];
+                let pipeRegex = new RegExp('\\' + PIPE_CHAR, 'g'); // must escape pipe char
+                html.querySelectorAll('tr').forEach(function (htmlRow) {
+                    let row = [];
 
-                  htmlRow.querySelectorAll('th, td').forEach(function (htmlCol) {
-                      // 1st column in AWS tables have checkboxes which yield no text, hence put blank placeholder
-                      // (cannot put space cos leading/trailing spaces are trimmed)
-                      // Columns in AWS tables sometimes have "|" in their text, hence replace with placeholder first
-                      let colText = htmlCol.innerText.trim() || BLANK_PLACEHOLDER;
-                      colText = colText.replace(pipeRegex, PIPE_PLACEHOLDER);
-                      row.push(colText);
-                  });
-                  rows.push(row.join("\t"));
-              });
-              text = rows.join("\n");
-          }
+                    htmlRow.querySelectorAll('th, td').forEach(function (htmlCol) {
+                        // 1st column in AWS tables have checkboxes which yield no text, hence put blank placeholder
+                        // (cannot put space cos leading/trailing spaces are trimmed)
+                        // Columns in AWS tables sometimes have "|" in their text, hence replace with placeholder first
+                        let colText = htmlCol.innerText.trim() || BLANK_PLACEHOLDER;
+                        colText = colText.replace(pipeRegex, PIPE_PLACEHOLDER);
+                        row.push(colText);
+                    });
+                    rows.push(row.join("\t"));
+                });
+                text = rows.join("\n");
+            }
 
-          // Output result to page
-          let result = textToTable(text, hasFooterRow, rowsPerSection, isHtmlTable);
-          document.getElementById('result-table').innerHTML = result.table;
-          console.log(result.table);
-          document.getElementById('result-csv').innerHTML = result.csv;
-          console.log(result.csv);
+            // If input uses AWS CloudFront log format, single space is considered as delimiter, so change to pipe
+            if (isAwsCloudfrontLogFormat) {
+                text = text.replace(/[ ]+/g, '|'); // treat multiple consecutive spaces as 1 delimiter
+            }
 
-          // Copy to clipboard
-          let resultClipboard = document.getElementById('result-clipboard');
-          resultClipboard.value = result.table;
-          resultClipboard.select();
-          resultClipboard.setSelectionRange(0, 99999); // for mobile devices
-          document.execCommand('copy');
-          textElement.focus(); // set focus back to input textarea
+            // Output result to page
+            let result = textToTable(text, hasFooterRow, rowsPerSection, isHtmlTable, addTimestampLocalColumn);
+            document.getElementById('result-table').innerHTML = result.table;
+            console.log(result.table);
+            document.getElementById('result-csv').innerHTML = result.csv;
+            console.log(result.csv);
 
-          // Download CSV file
-          if (downloadCsvFile) {
-              let element = document.createElement('a');
-              element.setAttribute('href', 'data:text/text;charset=utf-8,' + encodeURI(result.csv));
-              element.setAttribute('download', 'text2table-' + Date.now() + '.csv');
-              element.click();
-          }
-      }
+            // Copy to clipboard
+            let resultClipboard = document.getElementById('result-clipboard');
+            resultClipboard.value = result.table;
+            resultClipboard.select();
+            resultClipboard.setSelectionRange(0, 99999); // for mobile devices
+            document.execCommand('copy');
+            textElement.focus(); // set focus back to input textarea
 
-      /**
-       * Convert text to table
-       *
-       * @param {string} text
-       * @param {boolean} hasFooterRow - If true, divider will be inserted before last row.
-       * @param {int} rowsPerSection - If positive, divider will be inserted every X rows after header.
-       * @param {boolean} isHtmlTable - Whether input text is an HTML <table>.
-       * @returns object { table: <result in table format>, csv: <result in CSV format> }
-       */
-      function textToTable(text, hasFooterRow, rowsPerSection, isHtmlTable) {
-          // |, tab or multiple spaces will be taken as column delimiter
-          let resultRows = [];
-          let rowOutput = '';
-          let rows = [];
-          let columns = [];
-          let columnCount = 0;
-          let columnLengths = [];
-          let maxColumnLengths = [];
+            // Download CSV file
+            if (downloadCsvFile) {
+                let element = document.createElement('a');
+                element.setAttribute('href', 'data:text/text;charset=utf-8,' + encodeURI(result.csv));
+                element.setAttribute('download', 'text2table-' + Date.now() + '.csv');
+                element.click();
+            }
+        }
 
-          // Split each line into columns and calc max width for each column
-          text = text.trim().replace(/\\n/g, String.fromCharCode(10));
-          let lines = text.trim().split("\n");
-          let blankRegex = new RegExp(BLANK_PLACEHOLDER, 'g');
-          let pipeRegex = new RegExp(PIPE_PLACEHOLDER, 'g');
-          lines.forEach(function (line, lineIndex) {
-              // Replace tabs with | before trimming else empty cells copied from Excel will be trimmed out
-              line = line.replace(/\t/gi, '|').trim();
+        /**
+         * Convert text to table
+         *
+         * @param {string} text
+         * @param {boolean} hasFooterRow - If true, divider will be inserted before last row.
+         * @param {int} rowsPerSection - If positive, divider will be inserted every X rows after
+         *     the header row.
+         * @param {boolean} isHtmlTable=false - Whether input text is an HTML <table>.
+         * @param {boolean} addTimestampLocalColumn=false - Whether to add a `timestamp-local`
+         *     column. Assumes that there are `date` and `time` columns which indicate the UTC
+         *     timestamp.
+         * @returns object { table: <result in table format>, csv: <result in CSV format> }
+         */
+        function textToTable(text, hasFooterRow, rowsPerSection, isHtmlTable = false, addTimestampLocalColumn = false) {
+            // |, tab or multiple spaces will be taken as column delimiter
+            let resultRows = [];
+            let rowOutput = '';
+            let rows = [];
+            let columns = [];
+            let columnCount = 0;
+            let columnLengths = [];
+            let maxColumnLengths = [];
 
-              // Cater for imported tables which will have | at the beginning and the end (not beginning or end cos
-              // may be a result of copying empty cell from Excel) - remove these | first
-              if (line.match(/^\|.*\|$/)) {
-                  line = line.replace(/^\||\|$/g, '').trim();
-              }
+            // Split each line into columns and calc max width for each column
+            text = text.trim().replace(/\\n/g, String.fromCharCode(10));
+            let lines = text.trim().split("\n");
+            let isHeaderRowHandled = false;
+            let blankRegex = new RegExp(BLANK_PLACEHOLDER, 'g');
+            let pipeRegex = new RegExp(PIPE_PLACEHOLDER, 'g');
+            let dateUtcColumnIndex = 0;
+            let timeUtcColumnIndex = 0;
+            let timestampLocal = '';
+            lines.forEach(function (line, lineIndex) {
+                // Replace tabs with | before trimming else empty cells copied from Excel will be trimmed out
+                line = line.replace(/\t/gi, '|').trim();
 
-              // Ignore blank lines
-              if ('' === line) {
-                  return;
-              }
+                // Cater for imported tables which will have | at the beginning and the end (not beginning or end cos
+                // may be a result of copying empty cell from Excel) - remove these | first
+                if (line.match(/^\|.*\|$/)) {
+                    line = line.replace(/^\||\|$/g, '').trim();
+                }
 
-              // Ignore dividers which consists only of |, + and -
-              if (line.match(/^[\|\+\-]+$/)) {
-                  return;
-              }
+                // Ignore blank lines
+                if ('' === line) {
+                    return;
+                }
 
-              // To prevent confusion, trim spaces around existing "|" before converting multiple spaces to "|" but not
-              // tabs else empty cells copied from Excel will be removed
-              line = line.replace(/\s*\|\s*/gi, '|');
-              line = line.replace(/\s{2,}/gi, '|'); // replace multiple spaces
-              columns = line.split('|').map((value) => value.trim());
+                // Ignore dividers which consists only of |, + and -
+                if (line.match(/^[\|\+\-]+$/)) {
+                    return;
+                }
 
-              // Replace pipe placeholders
-              if (isHtmlTable) {
-                  columns = columns.map((value) => value.replace(blankRegex, BLANK_CHAR));
-                  columns = columns.map((value) => value.replace(pipeRegex, PIPE_CHAR));
-              }
-              rows.push(columns);
+                // To prevent confusion, trim spaces around existing "|" before converting multiple spaces to "|"
+                // but not tabs else empty cells copied from Excel will be removed
+                line = line.replace(/\s*\|\s*/gi, '|');
+                line = line.replace(/\s{2,}/gi, '|'); // replace multiple spaces
+                columns = line.split('|').map((value) => value.trim());
 
-              // Compute max length for each column
-              columnCount = Math.max(columnCount, columns.length); // some rows may have less columns
-              columnLengths = columns.map((value) => value.length);
-              columnLengths.forEach(function (colLen, colIndex) {
-                  maxColumnLengths[colIndex] = Math.max(colLen, maxColumnLengths[colIndex] || 0);
-              });
-          });
+                // Replace pipe placeholders
+                if (isHtmlTable) {
+                    columns = columns.map((value) => value.replace(blankRegex, BLANK_CHAR));
+                    columns = columns.map((value) => value.replace(pipeRegex, PIPE_CHAR));
+                }
 
-          // Divider line
-          let dividerRow = [];
-          let divider = '';
-          maxColumnLengths.forEach(function (maxColLen, maxColIndex) {
-              dividerRow.push('-'.repeat(maxColumnLengths[maxColIndex] || 0));
-          })
-          divider = '+-' + dividerRow.join('-+-') + '-+';
-          resultRows.push(divider);
+                // Compute timestamp in local timezone
+                if (addTimestampLocalColumn) {
+                    if (!isHeaderRowHandled) { // means current line is the header row
+                        for (let i = 0; i < columns.length; i++) { // get column index for date/time columns
+                            if (dateUtcColumnIndex && timeUtcColumnIndex) {
+                                break;
+                            }
 
-          // Create tabular format
-          let rowCnt = rows.length;
-          let csvResultRows = [];
-          rows.forEach(function (row, rowIndex) {
-              let csvRow = [];
+                            if ('date' === columns[i].toLowerCase()) {
+                                dateUtcColumnIndex = i;
+                            }
+                            if ('time' === columns[i].toLowerCase()) {
+                                timeUtcColumnIndex = i;
+                            }
+                        }
 
-              // Go thru each row and pad columns to align them
-              row.forEach(function (col, colIndex) {
-                  row[colIndex] = row[colIndex].padEnd(maxColumnLengths[colIndex] || 0, ' ');
-                  csvRow.push('"' + col.trim().replace(/"/g, '""') + '"');
-              });
-              for (let i = row.length; i < columnCount; i++) { // fill up missing columns if any
-                  row[i] = ' '.padEnd(maxColumnLengths[i] || 0, ' ');
-                  csvRow.push('""');
-              }
-              csvResultRows.push(csvRow.join(','));
+                        columns.unshift('timestamp-local');
+                    } else { // not the header row
+                        timestampLocal = dateToIsoLocal(
+                            new Date(columns[dateUtcColumnIndex] + 'T' + columns[timeUtcColumnIndex] + 'Z')
+                        );
+                        columns.unshift(timestampLocal);
+                    }
+                }
 
-              // Append row output to result
-              resultRows.push('| ' + row.join(' | ') + ' |');
+                isHeaderRowHandled = true; // at this point, it means at least the 1st non-empty line has been handled
+                rows.push(columns);
 
-              // Insert divider
-              let insertDivider = (0 === rowIndex) // header row
-                  || (hasFooterRow && rowIndex == (rowCnt - 2)) // row before footer row
-                  || (rowsPerSection > 0 && 0 === rowIndex % rowsPerSection); // section
-              if (insertDivider) {
-                  resultRows.push(divider);
-              }
-          });
+                // Compute max length for each column
+                columnCount = Math.max(columnCount, columns.length); // some rows may have less columns
+                columnLengths = columns.map((value) => value.length);
+                columnLengths.forEach(function (colLen, colIndex) {
+                    maxColumnLengths[colIndex] = Math.max(colLen, maxColumnLengths[colIndex] || 0);
+                });
+            });
 
-          if (resultRows[resultRows.length - 1] !== divider) {
-              resultRows.push(divider);
-          }
+            // Divider line
+            let dividerRow = [];
+            let divider = '';
+            maxColumnLengths.forEach(function (maxColLen, maxColIndex) {
+                dividerRow.push('-'.repeat(maxColumnLengths[maxColIndex] || 0));
+            })
+            divider = '+-' + dividerRow.join('-+-') + '-+';
+            resultRows.push(divider);
 
-          return {
-              table: resultRows.join("\n"),
-              csv: csvResultRows.join("\n")
-          };
-      }
+            // Create tabular format
+            let rowCnt = rows.length;
+            let csvResultRows = [];
+            rows.forEach(function (row, rowIndex) {
+                let csvRow = [];
+
+                // Go thru each row and pad columns to align them
+                row.forEach(function (col, colIndex) {
+                    row[colIndex] = row[colIndex].padEnd(maxColumnLengths[colIndex] || 0, ' ');
+                    csvRow.push('"' + col.trim().replace(/"/g, '""') + '"');
+                });
+                for (let i = row.length; i < columnCount; i++) { // fill up missing columns if any
+                    row[i] = ' '.padEnd(maxColumnLengths[i] || 0, ' ');
+                    csvRow.push('""');
+                }
+                csvResultRows.push(csvRow.join(','));
+
+                // Append row output to result
+                resultRows.push('| ' + row.join(' | ') + ' |');
+
+                // Insert divider
+                let insertDivider = (0 === rowIndex) // header row
+                    || (hasFooterRow && rowIndex == (rowCnt - 2)) // row before footer row
+                    || (rowsPerSection > 0 && 0 === rowIndex % rowsPerSection); // section
+                if (insertDivider) {
+                    resultRows.push(divider);
+                }
+            });
+
+            if (resultRows[resultRows.length - 1] !== divider) {
+                resultRows.push(divider);
+            }
+
+            return {
+                table: resultRows.join("\n"),
+                csv: csvResultRows.join("\n")
+            };
+        }
+
+        /**
+         * Convert timestamp from UTC timezone to local timezone and format as ISO 8601
+         *
+         * @param {Date} utcDate
+         * @returns {string} E.g. 2022-09-24T11:00:00.123+08:00.
+         */
+        function dateToIsoLocal(utcDate) {
+            let result = '';
+
+            // getTimezoneOffset() returns in reverse direction, e.g. -480 for Singapore +08:00, hence multiply by -1
+            let tzOffsetMins = -1 * utcDate.getTimezoneOffset();
+            let tzSign = (tzOffsetMins < 0) ? '-' : '+';
+            let tzHours = Math.floor(Math.abs(tzOffsetMins) / 60);
+            let tzMinutes = Math.abs(tzOffsetMins) - (tzHours * 60);
+
+            let localDate = new Date(utcDate.getTime() + (tzOffsetMins * 60 * 1000));
+            result = localDate.toISOString().replace('Z', '') // remove UTC timezone suffix
+                + tzSign + tzHours.toString().padStart(2, '0') + ':' + tzMinutes.toString().padStart(2, '0');
+
+            return result;
+        }
     </script>
   </body>
 </html>
