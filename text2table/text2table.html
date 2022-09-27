@@ -82,7 +82,7 @@
     <pre id="result-table"></pre>
     <p>&nbsp;</p>
 
-    <b>RESULT IN CSV FORMAT (downloaded as file):</b>
+    <b>RESULT IN CSV FORMAT (click <a id="download-csv-link" href="#">here</a> to download CSV file):</b>
     <pre id="result-csv"></pre>
     <p>&nbsp;</p>
 
@@ -91,6 +91,11 @@
         const BLANK_PLACEHOLDER = '%BLANK%';
         const PIPE_CHAR = '|';
         const PIPE_PLACEHOLDER = '%PIPE%';
+
+        let downloadCsvLink = document.getElementById('download-csv-link');
+        let resultClipboard = document.getElementById('result-clipboard');
+        let resultCsv = document.getElementById('result-csv');
+        let resultTable = document.getElementById('result-table');
 
         /**
          * Onload listener to load sample text
@@ -107,21 +112,17 @@
               c5.2xlarge  |8  |  34| 16 GiB${tab}EBS Only  ${tab}   $0.392 per Hour\\nTestRow "hi",!
             `.trim();
 
-            convert(false); // do not download CSV file for demo text
+            convert();
+            onDownloadCsv();
             document.getElementById('text').focus();
         });
 
         /**
          * Parse input text
          *
-         * @param {boolean} downloadCsvFile Default=true. Whether to download CSV result as file.
          * @returns {void}
          */
-        function convert(downloadCsvFile) {
-            if (undefined === downloadCsvFile) { // IE11 does not allow parameter defaults hence this
-                downloadCsvFile = true;
-            }
-
+        function convert() {
             let textElement = document.getElementById('text');
             let text = textElement.value.trim();
             let isHtmlTable = document.getElementById('is-html-table').checked;
@@ -161,26 +162,33 @@
 
             // Output result to page
             let result = textToTable(text, hasFooterRow, rowsPerSection, isHtmlTable, addTimestampLocalColumn);
-            document.getElementById('result-table').innerHTML = result.table;
+            resultTable.innerHTML = result.table;
             console.log(result.table);
-            document.getElementById('result-csv').innerHTML = result.csv;
+            resultCsv.innerHTML = result.csv;
             console.log(result.csv);
 
             // Copy to clipboard
-            let resultClipboard = document.getElementById('result-clipboard');
             resultClipboard.value = result.table;
             resultClipboard.select();
             resultClipboard.setSelectionRange(0, 99999); // for mobile devices
             document.execCommand('copy');
             textElement.focus(); // set focus back to input textarea
+        }
 
-            // Download CSV file
-            if (downloadCsvFile) {
+        /**
+         * Download results as CSV when link is clicked
+         *
+         * @returns {void}
+         */
+        function onDownloadCsv() {
+            downloadCsvLink.addEventListener('click', (event) => {
+                event.preventDefault();
+
                 let element = document.createElement('a');
-                element.setAttribute('href', 'data:text/text;charset=utf-8,' + encodeURI(result.csv));
+                element.setAttribute('href', 'data:text/text;charset=utf-8,' + encodeURI(resultCsv.innerHTML));
                 element.setAttribute('download', 'text2table-' + Date.now() + '.csv');
                 element.click();
-            }
+            });
         }
 
         /**
@@ -266,7 +274,7 @@
                         columns.unshift('timestamp-local');
                     } else { // not the header row
                         timestampLocal = dateToIsoLocal(
-                            new Date(columns[dateUtcColumnIndex] + 'T' + columns[timeUtcColumnIndex] + 'Z')
+                            columns[dateUtcColumnIndex] + 'T' + columns[timeUtcColumnIndex] + 'Z'
                         );
                         columns.unshift(timestampLocal);
                     }
@@ -334,11 +342,15 @@
         /**
          * Convert timestamp from UTC timezone to local timezone and format as ISO 8601
          *
-         * @param {Date} utcDate
+         * @param {(int|string|Date)} utcDateValue
          * @returns {string} E.g. 2022-09-24T11:00:00.123+08:00.
          */
-        function dateToIsoLocal(utcDate) {
+        function dateToIsoLocal(utcDateValue) {
             let result = '';
+            let utcDate = toDate(utcDateValue);
+            if (!utcDate) {
+                console.error('Could not convert to Date:', utcDateValue);
+            }
 
             // getTimezoneOffset() returns in reverse direction, e.g. -480 for Singapore +08:00, hence multiply by -1
             let tzOffsetMins = -1 * utcDate.getTimezoneOffset();
@@ -352,6 +364,33 @@
 
             return result;
         }
+
+        /**
+         * Convert UNIX timestamp or textual representation such as ISO 8601 formatted date to Date object
+         *
+         * Not named getDate() to avoid confusion with Date.getDate().
+         *
+         * @param {(int|string|Date)} dateValue - UNIX timestamp in seconds, UNIX timestamp in
+         *     milliseconds, UNIX timstamp as string, ISO 8601 formatted string or Date object.
+         * @returns {(null|Date)} Null is returned if dateValue cannot be converted
+         *     to a Date object.
+         */
+        function toDate(dateValue) {
+            let date = null;
+            let intVal = parseInt(dateValue);
+
+            if (dateValue instanceof Date) {
+                date = dateValue;
+            } else if (intVal == dateValue) { // is number, assumed to be UNIX timestamp
+                // Checking if UNIX timestamp is in seconds or milliseconds,
+                // comparing with UNIX timestamp for 2000-01-01T00:00:00Z in milliseconds
+                date = (0 === intVal) ? null : new Date(intVal >= 946684800000 ? intVal : intVal * 1000);
+            } else {
+                date = new Date(dateValue); // assumed to be textual representation like ISO 8601 formatted string
+            }
+
+            return ((!date || 'Invalid Date' === date.toString()) ? null : date);
+        };
     </script>
   </body>
 </html>
