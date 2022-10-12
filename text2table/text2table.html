@@ -36,6 +36,13 @@
         width: 90vw;
       }
 
+      a {
+        color: #0000ff;
+      }
+      a:hover {
+        color: #ff00ff;
+      }
+
       #result-clipboard {
         /* to facilitate copying to clipboard - cannot set display:none or visibility:hidden else cannot work */
         height: 1px;
@@ -99,7 +106,7 @@
     Insert divider every X rows after header row: <input id="rows-per-section" type="numeric" value="0" /><br><br>
     <button id="convert" onclick="convert();">Convert</button><br><br>
 
-    <b>RESULT IN TABLE FORMAT (copied to clipboard):</b>
+    <b>RESULT IN TABLE FORMAT (click <a id="copy-to-clipboard-link" href="#">here</a> to copy to clipboard):</b>
     <textarea id="result-clipboard"></textarea>
     <pre id="result-table"></pre>
     <p>&nbsp;</p>
@@ -114,6 +121,8 @@
         const PIPE_CHAR = '|';
         const PIPE_PLACEHOLDER = '%PIPE%';
 
+        let textElement = document.getElementById('text');
+        let copyToClipboardLink = document.getElementById('copy-to-clipboard-link');
         let downloadCsvLink = document.getElementById('download-csv-link');
         let resultClipboard = document.getElementById('result-clipboard');
         let resultCsv = document.getElementById('result-csv');
@@ -135,8 +144,9 @@
             `.trim();
 
             convert();
+            onCopyToClipboard();
             onDownloadCsv();
-            document.getElementById('text').focus();
+            textElement.focus();
         });
 
         /**
@@ -145,7 +155,6 @@
          * @returns {void}
          */
         function convert() {
-            let textElement = document.getElementById('text');
             let text = textElement.value.trim();
             let isHtmlTable = document.getElementById('is-html-table').checked;
             let isAwsCloudfrontLogFormat = document.getElementById('is-aws-cloudfront-log-format').checked;
@@ -194,12 +203,22 @@
             resultCsv.innerHTML = result.csv;
             console.log(result.csv);
 
-            // Copy to clipboard
+            // Store results in element for copying to clipboard
             resultClipboard.value = result.table;
-            resultClipboard.select();
-            resultClipboard.setSelectionRange(0, 99999); // for mobile devices
-            document.execCommand('copy');
-            textElement.focus(); // set focus back to input textarea
+        }
+
+        /**
+         * Copy results to clipboard when link is clicked
+         *
+         * @returns {void}
+         */
+        function onCopyToClipboard() {
+            copyToClipboardLink.addEventListener('click', (event) => {
+                resultClipboard.select();
+                resultClipboard.setSelectionRange(0, 99999); // for mobile devices
+                document.execCommand('copy');
+                textElement.focus(); // set focus back to input textarea
+            });
         }
 
         /**
