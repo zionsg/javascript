@@ -148,6 +148,11 @@
                         // Columns in AWS tables sometimes have "|" in their text, hence replace with placeholder first
                         let colText = htmlCol.innerText.trim() || BLANK_PLACEHOLDER;
                         colText = colText.replace(pipeRegex, PIPE_PLACEHOLDER);
+                      
+                        // Columns in AWS tables sometimes contain newlines, have to replace with spaces
+                        // (cannot preserve/restore the newlines as it will break the output table)
+                        colText = colText.replace(/[\r\n\t]/g, ' ').replace(/\s{2,}/g, ' ');
+                      
                         row.push(colText);
                     });
                     rows.push(row.join("\t"));
