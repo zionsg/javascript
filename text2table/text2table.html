@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
   <!--
@@ -72,7 +73,8 @@
 
     <input id="is-html-table" type="checkbox" /> Input text is HTML <code>&lt;table&gt;</code><br>
     <input id="is-aws-cloudfront-log-format" type="checkbox" />
-        Input text uses AWS CloudFront log format (<code>timestamp-local</code> column will be added)<br>
+        Input text uses AWS CloudFront log or AWS VPC flow log format
+        (sometimes single-space delimited, <code>timestamp-local</code> column will be added)<br>
     <input id="has-footer-row" type="checkbox" /> Last line is footer row<br>
     Insert divider every X rows after header row: <input id="rows-per-section" type="numeric" value="0" /><br><br>
     <button id="convert" onclick="convert();">Convert</button><br><br>
@@ -148,11 +150,11 @@
                         // Columns in AWS tables sometimes have "|" in their text, hence replace with placeholder first
                         let colText = htmlCol.innerText.trim() || BLANK_PLACEHOLDER;
                         colText = colText.replace(pipeRegex, PIPE_PLACEHOLDER);
-                      
+
                         // Columns in AWS tables sometimes contain newlines, have to replace with spaces
                         // (cannot preserve/restore the newlines as it will break the output table)
                         colText = colText.replace(/[\r\n\t]/g, ' ').replace(/\s{2,}/g, ' ');
-                      
+
                         row.push(colText);
                     });
                     rows.push(row.join("\t"));
@@ -281,6 +283,7 @@
                         timestampLocal = dateToIsoLocal(
                             columns[dateUtcColumnIndex] + 'T' + columns[timeUtcColumnIndex] + 'Z'
                         );
+
                         columns.unshift(timestampLocal);
                     }
                 }
@@ -349,12 +352,14 @@
          *
          * @param {(int|string|Date)} utcDateValue
          * @returns {string} E.g. 2022-09-24T11:00:00.123+08:00.
+         *     Empty string returned if error.
          */
         function dateToIsoLocal(utcDateValue) {
             let result = '';
             let utcDate = toDate(utcDateValue);
             if (!utcDate) {
                 console.error('Could not convert to Date:', utcDateValue);
+                return '';
             }
 
             // getTimezoneOffset() returns in reverse direction, e.g. -480 for Singapore +08:00, hence multiply by -1
@@ -391,6 +396,7 @@
                 // comparing with UNIX timestamp for 2000-01-01T00:00:00Z in milliseconds
                 date = (0 === intVal) ? null : new Date(intVal >= 946684800000 ? intVal : intVal * 1000);
             } else {
+                // no need try/catch block
                 date = new Date(dateValue); // assumed to be textual representation like ISO 8601 formatted string
             }
 
