@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
   <!--
@@ -280,9 +279,9 @@
 
                         columns.unshift('timestamp-local');
                     } else { // not the header row
-                        timestampLocal = dateToIsoLocal(
-                            columns[dateUtcColumnIndex] + 'T' + columns[timeUtcColumnIndex] + 'Z'
-                        );
+                        timestampLocal = (dateUtcColumnIndex && timeUtcColumnIndex)
+                            ? dateToIsoLocal(columns[dateUtcColumnIndex] + 'T' + columns[timeUtcColumnIndex] + 'Z')
+                            : '';
 
                         columns.unshift(timestampLocal);
                     }
