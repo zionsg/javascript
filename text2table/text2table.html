@@ -50,8 +50,11 @@
 
     <ul>
       <li>1st line assumed to be header row.</li>
-      <li>Each line becomes a row. Blank lines are ignored.</li>
-      <li><code>\n</code>, if any, will be taken as a row delimiter.</li>
+      <li>
+        Each line becomes a row.
+        Blank lines are ignored.
+        <code>\n</code>, if any, will be taken as a row delimiter.
+      </li>
       <li>
         <code>|</code>, tab or multiple spaces will be taken as column delimiter.
         Tabs usually occur as a result of copying cells from Excel.
@@ -64,6 +67,24 @@
         This script can also convert a HTML <code>&lt;table&gt;</code> to an ASCII table - just paste the HTML code in
         the input and tick "Input text is HTML <code>&lt;table&gt;</code>".
       </li>
+      <li>
+        AWS CloudFront
+        <a target="_blank" rel="noopener"
+          href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/AccessLogs.html#BasicDistributionFileFormat">
+          standard log file fields</a>:<br>
+        <code>
+          date  time  x-edge-location  sc-bytes  c-ip  cs-method  cs(Host)  cs-uri-stem  sc-status  cs(Referer)  cs(User-Agent)  cs-uri-query  cs(Cookie)  x-edge-result-type  x-edge-request-id  x-host-header  cs-protocol  cs-bytes  time-taken  x-forwarded-for  ssl-protocol  ssl-cipher  x-edge-response-result-type  cs-protocol-version  fle-status  fle-encrypted-fields  c-port  time-to-first-byte  x-edge-detailed-result-type  sc-content-type  sc-content-len  sc-range-start  sc-range-end
+        </code>
+      </li>
+      <li>
+        AWS VPC
+        <a target="_blank" rel="noopener"
+          href="https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html#flow-logs-fields">
+          flow log fields</a>:<br>
+        <code>
+          version  account-id  interface-id  srcaddr  dstaddr  srcport  dstport  protocol  packets  bytes  start  end  action  log-status  vpc-id  subnet-id  instance-id  tcp-flags  type  pkt-srcaddr  pkt-dstaddr  region  az-id  sublocation-type  sublocation-id  pkt-src-aws-service  pkt-dst-aws-service  flow-direction  traffic-path
+        </code>
+      </li>
     </ul>
 
     <b>INPUT TEXT:</b><br>
@@ -72,7 +93,7 @@
 
     <input id="is-html-table" type="checkbox" /> Input text is HTML <code>&lt;table&gt;</code><br>
     <input id="is-aws-cloudfront-log-format" type="checkbox" />
-        Input text uses AWS CloudFront log or AWS VPC flow log format
+        Input text uses format of AWS CloudFront logs or AWS VPC flow logs
         (sometimes single-space delimited, <code>timestamp-local</code> column will be added)<br>
     <input id="has-footer-row" type="checkbox" /> Last line is footer row<br>
     Insert divider every X rows after header row: <input id="rows-per-section" type="numeric" value="0" /><br><br>
@@ -226,9 +247,11 @@
             let isHeaderRowHandled = false;
             let blankRegex = new RegExp(BLANK_PLACEHOLDER, 'g');
             let pipeRegex = new RegExp(PIPE_PLACEHOLDER, 'g');
-            let dateUtcColumnIndex = 0;
-            let timeUtcColumnIndex = 0;
+            let utcDateColumnIndex = -1;
+            let utcTimeColumnIndex = -1;
+            let utcStartColumnIndex = -1;
             let timestampLocal = '';
+            let columnName = '';
             lines.forEach(function (line, lineIndex) {
                 // Replace tabs with | before trimming else empty cells copied from Excel will be trimmed out
                 line = line.replace(/\t/gi, '|').trim();
@@ -261,27 +284,43 @@
                     columns = columns.map((value) => value.replace(pipeRegex, PIPE_CHAR));
                 }
 
-                // Compute timestamp in local timezone
+                // Compute timestamp in local timezone, if applicable
+                // AWS CloudFront logs have "date" & "time" columns which are in UTC timezone as per
+                // "Standard log file fields" section in
+                // https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/AccessLogs.html
+                // AWS VPC flow logs have a "start" column which is UNIX timestamp in seconds in UTC timezone as per
+                // "Available fields" section in https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html
                 if (addTimestampLocalColumn) {
                     if (!isHeaderRowHandled) { // means current line is the header row
                         for (let i = 0; i < columns.length; i++) { // get column index for date/time columns
-                            if (dateUtcColumnIndex && timeUtcColumnIndex) {
+                            if ((utcDateColumnIndex > -1 && utcTimeColumnIndex > -1) || (utcStartColumnIndex > -1)) {
                                 break;
                             }
 
-                            if ('date' === columns[i].toLowerCase()) {
-                                dateUtcColumnIndex = i;
+                            columnName = columns[i].toLowerCase();
+                            if ('date' === columnName) {
+                                utcDateColumnIndex = i;
                             }
-                            if ('time' === columns[i].toLowerCase()) {
-                                timeUtcColumnIndex = i;
+                            if ('time' === columnName) {
+                                utcTimeColumnIndex = i;
+                            }
+                            if ('start' === columnName) {
+                                utcStartColumnIndex = i;
                             }
                         }
 
                         columns.unshift('timestamp-local');
                     } else { // not the header row
-                        timestampLocal = (dateUtcColumnIndex && timeUtcColumnIndex)
-                            ? dateToIsoLocal(columns[dateUtcColumnIndex] + 'T' + columns[timeUtcColumnIndex] + 'Z')
-                            : '';
+                        if (utcDateColumnIndex > -1 && utcTimeColumnIndex > -1) {
+                            timestampLocal = dateToIsoLocal(
+                                columns[utcDateColumnIndex] + 'T' + columns[utcTimeColumnIndex] + 'Z'
+                            );
+                        } else if (utcStartColumnIndex > -1) {
+                            // convert to milliseconds
+                            timestampLocal = dateToIsoLocal(parseInt(columns[utcStartColumnIndex]) * 1000);
+                        } else {
+                            timestampLocal = '';
+                        }
 
                         columns.unshift(timestampLocal);
                     }
