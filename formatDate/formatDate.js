@@ -77,7 +77,7 @@ function formatDate(
 
     if (dateValue instanceof Date) {
         dateObj = dateValue;
-    } else if (intVal == dateValue) { // is number, assumed to be UNIX timestamp
+    } else if (intVal == dateValue) { // assumed UNIX timestamp if numeric, == cos may be int/string
         // Guessing if UNIX timestamp is in seconds or milliseconds (0 taken as empty/invalid),
         // comparing with UNIX timestamp for 2000-01-01T00:00:00Z in milliseconds
         dateObj = (0 === intVal)
