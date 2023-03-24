@@ -1,0 +1,16 @@
+<script src="formatDate.js"></script>
+
+<script>
+    let timestamp = 1680287445000; // Fri 2023-03-31T18:30:45Z (UTC), Sat 2023-04-01T02:30:45+08:00 (SGT)
+    let offset = 480; // Singapore (SGT) timezone offset is +08:00, i.e. 480 mins from UTC
+    console.log(1, formatDate(timestamp, 'weekday-long', 'none'));
+    console.log(2, formatDate(timestamp, 'weekday-long', 'utc2local', offset));
+    console.log(3, formatDate(timestamp, 'weekday-long', 'local2utc', offset));
+
+    // Append "Z" to simulate SGT user keying in 01 Apr but treated as 01 Apr UTC when passed to backend server
+    // This is needed as running `new Date('2023-04-01 02:30:45')` in the browser would already convert it to SGT
+    let date = '2023-04-01T02:30:45Z';
+    console.log(4, formatDate(date, 'timestamp', 'none'));
+    console.log(5, formatDate(date, 'timestamp', 'utc2local', offset));
+    console.log(6, formatDate(date, 'timestamp', 'local2utc', offset));
+</script>
