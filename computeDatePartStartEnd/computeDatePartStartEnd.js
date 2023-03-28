@@ -1,6 +1,22 @@
 /**
  * Compute start/end of date part for specified date
  *
+ * @example Given timestamp of 1678816800000 (Tue 14 Mar 2023 18:00 UTC, Wed 15 Mar 2023 02:00 SGT),
+ *      this method will yield the following:
+ *      - When run in JavaScript on a browser in Singapore timezone +08:00
+ *        (datePart = year, alignment = start): Sun 01 Jan 2023 00:00:00.000 SGT
+ *        (year, end): Sun 31 Dec 2023 23:59:59.999 SGT
+ *        (month, start): Wed 01 Mar 2023 00:00:00.000 SGT
+ *        (month, end): Fri 31 Mar 2023 23:59:59.999 SGT
+ *        (day, start): Wed 15 Mar 2023 00:00:00.000 SGT
+ *        (day, end): Wed 15 Mar 2023 23:59:59.999 SGT
+ *      - When run in Node.js on a server set to UTC timezone +00:00
+ *        (datePart = year, alignment = start): Sun 01 Jan 2023 00:00:00.000 UTC
+ *        (year, end): Sun 31 Dec 2023 23:59:59.999 UTC
+ *        (month, start): Wed 01 Mar 2023 00:00:00.000 UTC
+ *        (month, end): Fri 31 Mar 2023 23:59:59.999 UTC
+ *        (day, start): Tue Mar 14 2023 00:00:00.000 UTC
+ *        (day, end): Tue Mar 14 2023 23:59:59.999 UTC
  * @param {int} timestampMs - UNIX timestamp in milliseconds.
  * @param {string="year","month","day"} datePart - Date part to compute.
  * @param {string="start","end"} alignment - Alignment of date part.
