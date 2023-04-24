@@ -60,8 +60,9 @@
  *     "utc2local" to convert date from UTC to local timezone,
  *     "local2utc" to convert date from local timezone to UTC.
  * @param {int} localTimezoneOffsetMins=0 - Client's local timezone offset
- *     from UTC in minutes, e.g. 480 if client is in Singapore timezone.
- *     Note that this value may be negative, e.g. -210 for Newfoundland.
+ *     from UTC in minutes, e.g. 480 if client is in Singapore timezone +08:00.
+ *     Note that this value may be negative, e.g. -570 for Marquesas Islands
+ *     timezone -09:30.
  * @returns {(string|int|object|Date)} Empty string returned if dateValue
  *     cannot be converted to a Date object, else as per return format
  *     specified in `format`.
