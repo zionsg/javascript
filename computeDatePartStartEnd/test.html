@@ -1,8 +1,8 @@
 <script src="computeDatePartStartEnd.js"></script>
 
 <script>
-    let localDate = new Date('2023-03-15T02:00'); // this is adjusted to local timezone
-    let timestampMs = localDate.getTime();
+    let timestampMs = 1677609045123; // Tue 28 Feb 2023 18:30:45.123 UTC, Wed 01 Mar 2023 02:30:45.123 SGT
+    let dateObj = new Date(timestampMs);
     let result = {
         yearStart: computeDatePartStartEnd(timestampMs, 'year', 'start'),
         yearEnd: computeDatePartStartEnd(timestampMs, 'year', 'end'),
@@ -12,7 +12,7 @@
         dayEnd: computeDatePartStartEnd(timestampMs, 'day', 'end'),
     };
 
-    console.log('Date', localDate.toString());
+    console.log('Date', dateObj.toString());
     Object.keys(result).forEach((key) => {
         console.log(key, (new Date(result[key])).toString());
     });

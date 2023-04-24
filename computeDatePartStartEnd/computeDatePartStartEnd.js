@@ -1,30 +1,37 @@
 /**
  * Compute start/end of date part for specified date
  *
- * @example Given timestamp of 1678816800000 (Tue 14 Mar 2023 18:00 UTC, Wed 15 Mar 2023 02:00 SGT),
+ * @example Given timestamp of 1677609045123
+ *      (Tue 28 Feb 2023 18:30:45.123 UTC, Wed 01 Mar 2023 02:30:45.123 SGT),
  *      this method will yield the following:
  *      - When run in JavaScript on a browser in Singapore timezone +08:00
- *        (datePart = year, alignment = start): Sun 01 Jan 2023 00:00:00.000 SGT
- *        (year, end): Sun 31 Dec 2023 23:59:59.999 SGT
- *        (month, start): Wed 01 Mar 2023 00:00:00.000 SGT
- *        (month, end): Fri 31 Mar 2023 23:59:59.999 SGT
- *        (day, start): Wed 15 Mar 2023 00:00:00.000 SGT
- *        (day, end): Wed 15 Mar 2023 23:59:59.999 SGT
+ *        (timestamp, 'year', 'start'):  Sun 01 Jan 2023 0:00:00.000 SGT
+ *        (timestamp, 'year', 'end'):    Sun 31 Dec 2023 23:59:59.999 SGT
+ *        (timestamp, 'month', 'start'): Wed 01 Mar 2023 0:00:00.000 SGT
+ *        (timestamp, 'month', 'end'):   Fri 31 Mar 2023 23:59:59.999 SGT
+ *        (timestamp, 'day', 'start'):   Wed 01 Mar 2023 0:00:00.000 SGT
+ *        (timestamp, 'day', 'end'):     Wed 01 Mar 2023 23:59:59.999 SGT
  *      - When run in Node.js on a server set to UTC timezone +00:00
- *        (datePart = year, alignment = start): Sun 01 Jan 2023 00:00:00.000 UTC
- *        (year, end): Sun 31 Dec 2023 23:59:59.999 UTC
- *        (month, start): Wed 01 Mar 2023 00:00:00.000 UTC
- *        (month, end): Fri 31 Mar 2023 23:59:59.999 UTC
- *        (day, start): Tue Mar 14 2023 00:00:00.000 UTC
- *        (day, end): Tue Mar 14 2023 23:59:59.999 UTC
+ *        (timestamp, 'year', 'start'):  Sun 01 Jan 2023 00:00:00.000 UTC
+ *        (timestamp, 'year', 'end'):    Sun 31 Dec 2023 23:59:59.999 UTC
+ *        (timestamp, 'month', 'start'): Wed 01 Feb 2023 0:00:00.000 UTC
+ *        (timestamp, 'month', 'end'):   Tue 28 Feb 2023 23:59:59.999 UTC
+ *        (timestamp, 'day', 'start'):   Tue 28 Feb 2023 0:00:00.000 UTC
+ *        (timestamp, 'day', 'end'):     Tue 28 Feb 2023 23:59:59.999 UTC
  * @param {int} timestampMs - UNIX timestamp in milliseconds.
  * @param {string="year","month","day"} datePart - Date part to compute.
  * @param {string="start","end"} alignment - Alignment of date part.
  * @returns {int} UNIX timestamp in milliseconds.
  */
 function computeDatePartStartEnd(timestampMs, datePart, alignment) {
-    let dateObj = new Date(timestampMs);
+    let dateObj = new Date();
     let localTimezoneOffsetMins = 0 - dateObj.getTimezoneOffset(); // e.g. Singapore is +08:00, +480 mins from UTC
+
+    // Add timezone offset before computing else year/monthIndex/day would be wrong,
+    // e.g. 1677609045123 (28 Feb 2023 18:30:45 UTC, 01 Mar 2023 02:30:45 SGT) would yield
+    // (year 2023, monthIndex 1 which is Feb, day 28) when this method is run in a browser
+    // in Singapore timezone +08:00
+    dateObj.setTime(timestampMs + (localTimezoneOffsetMins * 60 * 1000));
 
     // Using getUTC<part> and not get<part> methods as the latter will
     // apply the timezone offset when running in the browser (or when timezone
@@ -52,9 +59,9 @@ function computeDatePartStartEnd(timestampMs, datePart, alignment) {
             : Date.UTC(year, monthIndex, day, 23, 59, 59, 999); // 23:59 of the same day
     }
 
-    // Resolve timezone offset so that result is accurate especially when run in
-    // the browser (or when timezone of host machine is not UTC)
-    return ('day' === datePart)
-        ? computedTimestamp + (2 * (localTimezoneOffsetMins * 60000))
-        : (computedTimestamp - (localTimezoneOffsetMins * 60000));
+    // Subtract off timezone offset after computing else time portion would be wrong,
+    // e.g. 1677609045123 (28 Feb 2023 18:30:45 UTC, 01 Mar 2023 02:30:45 SGT) would yield
+    // 01 Mar 2023 08:00:00 SGT for start of day when this method is run in a browser
+    // in Singapore timezone +08:00
+    return (computedTimestamp - (localTimezoneOffsetMins * 60 * 1000));
 }
