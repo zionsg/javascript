@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Countdown Timer</title>
+
+    <style>
+      html,
+      body,
+      input {
+        font-family: monospace;
+        font-size: 16px;
+        text-align: center;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="timer"></div>
+
+    <script>
+        (function () {
+            let optionDefaults = {
+                color: 'gray',
+                endcolor: 'red',
+                ending: '🤫',
+                seconds: 10,
+                size: 256,
+            };
+
+            window.addEventListener('DOMContentLoaded', function () {
+                let urlObj = new URL(window.location.href);
+                let options = {};
+                Object.keys(optionDefaults).forEach((name) => {
+                    let value = optionDefaults[name];
+                    if (Number.isInteger(value)) {
+                        options[name] = parseInt(urlObj.searchParams.get(name)) || value; // parseInt() may give NaN
+                    } else {
+                        options[name] = urlObj.searchParams.get(name) || value;
+                    }
+                });
+
+                // Style timer once
+                let timerElement = document.querySelector('#timer');
+                timerElement.style.color = options.color;
+                timerElement.style.fontSize = options.size + 'px';
+
+                // Clear unused query params and update URL without refresh
+                urlObj.search = '';
+                Object.keys(options).forEach((name) => {
+                    urlObj.searchParams.set(name, options[name]);
+                });
+                window.history.pushState('Countdown Timer', document.title, urlObj.toString());
+
+                // Start
+                updateTimer(timerElement, Date.now(), options);
+            });
+
+            function updateTimer(timerElement, startTimeMs, options) {
+                let currTimeMs = Date.now();
+                let timeLeft = options.seconds - Math.floor((currTimeMs - startTimeMs) / 1000);
+                let sec = 0;
+                let min = 0;
+                let hr = 0;
+
+                if (timeLeft <= 0) {
+                    timerElement.innerHTML = options.ending;
+
+                    return;
+                } else if (timeLeft <= 5) {
+                    timerElement.style.color = options.endcolor;
+                }
+
+                sec = Math.floor(timeLeft % 60).toString();
+                timeLeft = timeLeft / 60;
+                min = Math.floor(timeLeft % 60).toString();
+                timeLeft = timeLeft / 60;
+                hr = Math.floor(timeLeft % 60).toString();
+
+                let text = hr.padStart(2, 0)
+                    + ':' + min.padStart(2, 0)
+                    + ':' + sec.padStart(2, 0);
+
+                document.title = text;
+                timerElement.innerHTML = text;
+
+                window.setTimeout(
+                    function () {
+                        updateTimer(timerElement, startTimeMs, options);
+                    },
+                    1000
+                );
+            }
+        })();
+    </script>
+  </body>
+</html>
