@@ -26,6 +26,12 @@
                     format: 'webp',
                     resolution: '320x320',
                 },
+                {
+                    label: 'single-color',
+                    format: 'png',
+                    resolution: '160x160',
+                    hide_text: true,
+                },
             ];
             let backgroundColors = [
                 'red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet', 'black', 'lightgray', 'white',
@@ -54,10 +60,13 @@
                 let label = type.label;
                 let format = type.format;
                 let resolution = type.resolution;
+                let hideText = type.hide_text ?? false;
 
                 bgHexColors.forEach((bgHexColor, bgColorIndex) => {
                     let bgColor = bgHexColor.substring(1); // remove #
-                    let textColor = textColorByBackgroundColor[bgHexColor].substring(1); // remove #
+                    let textColor = hideText
+                        ? bgColor
+                        : textColorByBackgroundColor[bgHexColor].substring(1); // remove #
                     let filename = label.toLowerCase()
                         + '-' + (bgColorIndex + 1).toString().padStart(bgColorPadLen, '0')
                         + '.' + format;
