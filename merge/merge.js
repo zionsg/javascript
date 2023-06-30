@@ -5,7 +5,7 @@
  *     to result, including those that do not exist in `dst`.
  * @param {Object} dst - Destination object to be merged in. Properties that
  *     exist in `dst` but not in `src` will not be copied over to result.
- *     Values will be cast to the same type as that in `src`.
+ *     Values must be of the same type as in `src` and cannot be null.
  * @returns {Object}
  */
 function merge(src, dst) {
@@ -17,12 +17,12 @@ function merge(src, dst) {
         let dstVal = dst?.[key];
         let dstType = typeof dstVal;
 
-        if (undefined === dstVal || dstType !== srcType) {
+        if ([undefined, null].includes(dstVal) || dstType !== srcType) {
             result[key] = srcVal;
         } else if (Array.isArray(srcVal) && Array.isArray(dstVal)) { // check as typeof returns 'object' for array
             result[key] = dstVal; // replace entire array
         } else if ('object' === srcType) {
-            result[key] = (null === dstVal) ? srcVal : merge(srcVal, dstVal); // don't allow setting of null values
+            result[key] = merge(srcVal, dstVal); // don't allow null (typeof is object) to destroy srcVal structure
         } else if ('function' === srcType) {
             result[key] = dstVal; // replace entire function
         } else if ('boolean' === srcType){
