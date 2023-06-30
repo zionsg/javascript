@@ -1,0 +1,29 @@
+<script src="merge.js"></script>
+
+<script>
+    let src = {
+        a: 'hello',
+        b: 42,
+        c: [1, 2, 3],
+        d: true,
+        e: {
+            f: function () { return 'src'; },
+            g: 3.14,
+        },
+    };
+
+    let dst = {
+        a: 'bye',
+        b: 'will not replace as different type',
+        c: [4, 5, 6],
+        e: {
+            f: function () { return 'dst'; },
+            g: 2,
+        },
+        h: 'test',
+    };
+
+    let result = merge(src, dst);
+    console.log(result.e.f());
+    console.log(result);
+</script>
