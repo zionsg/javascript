@@ -22,7 +22,7 @@ function merge(src, dst) {
         } else if (Array.isArray(srcVal) && Array.isArray(dstVal)) { // check as typeof returns 'object' for array
             result[key] = dstVal; // replace entire array
         } else if ('object' === srcType) {
-            result[key] = (null === dstVal) ? dstVal : merge(srcVal, dstVal);
+            result[key] = (null === dstVal) ? srcVal : merge(srcVal, dstVal); // don't allow setting of null values
         } else if ('function' === srcType) {
             result[key] = dstVal; // replace entire function
         } else if ('boolean' === srcType){
