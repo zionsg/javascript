@@ -29,7 +29,8 @@
         border: 1px solid black;
         padding: 0.5rem;
       }
-      th {
+      th,
+      td.center {
         text-align: center;
       }
     </style>
@@ -100,10 +101,11 @@
                             '.' + move.disk_positions.join(',') + '.'
                         ];
 
+                        // Draw rods
                         html += '<tr>' + row.map((col) => `<td>${col}</td>`).join('');
                         for (let i = 1; i <= result.rod_count; i++) {
                             let disksOnRod = move.rods[i];
-                            html += '<td>';
+                            html += '<td class="center">';
 
                             // Draw protruding rod
                             let drawRodHeight = rodHeight - disksOnRod.length;
