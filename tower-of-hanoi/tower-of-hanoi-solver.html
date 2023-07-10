@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tower of Hanoi Solver</title>
+
+    <style>
+      html,
+      body {
+        font-family: "Courier New", monospace;
+        font-size: 16px;
+        margin: 0;
+        padding: 0.5rem;
+      }
+
+      input,
+      button {
+        font-family: "Courier New", monospace;
+        font-size: 1rem;
+      }
+
+      table {
+        border-collapse: collapse;
+        border-spacing: 0;
+      }
+      th,
+      td {
+        border: 1px solid black;
+        padding: 0.5rem;
+      }
+      th {
+        text-align: center;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>Tower of Hanoi Solver</h1>
+
+    <p>No. of disks (3 - 10): <input id="disks" type="number" min="1" max="10" value="3"></p>
+    <p><button id="solve">Show solution</button></p>
+
+    <div id="results"></div>
+
+    <script>
+        (function () {
+            let disksInput = document.querySelector('#disks');
+            let solveButton = document.querySelector('#solve');
+            let resultsElement = document.querySelector('#results');
+
+            window.addEventListener('DOMContentLoaded', () => {
+                solveButton.addEventListener('click', (event) => {
+                    let diskCount = Math.min(
+                        parseInt(disksInput.max),
+                        Math.max(parseInt(disksInput.min), parseInt(disksInput.value) || 0)
+                    );
+
+                    let timestamp = (new Date()).toISOString();
+                    let result = solve(diskCount);
+                    console.log(timestamp, result);
+
+                    let html = `RESULTS ${timestamp}`;
+                    let summaryLines = [
+                        `Game parameters: ${result.rod_count} rods, ${result.disk_count} disks.`,
+                        `Leftmost rod is rod #1, rightmost rod is rod #${result.rod_count}.`,
+                        `Smallest disk is disk #1, largest disk is disk #${result.disk_count}.`,
+                        `Minimal ${result.move_count} moves to solve, starting at rod #1 and ending at `
+                            + `rod #${result.final_rod_num}.`,
+                        'Most significant bit (leftmost) in binary representation of move number is for largest disk.',
+                        'Solution shifts smallest disk to the next rod on the right during odd-numbered moves '
+                            + 'and shifts another disk legitimately during even-numbered moves.',
+                        'The dots before/after the disk positions aid in searching. E.g. to find moves in a 8-disk '
+                            + 'game where the 4 largest disks are on rod #3, use "3,3,3,3." as the search string.',
+                    ];
+                    let summary = '<ul>' + summaryLines.map((line) => `<li>${line}</li>`).join('') + '</ul>';
+                    html += summary;
+
+                    let headerRow = ['Move #', 'Binary', 'Disk #', 'Disk Positions (smallest to largest)'];
+                    html += '<table>'
+                        + '<tr>'
+                        + headerRow.map((col) => `<th>${col}</th>`).join('');
+                    for (let i = 1; i <= result.rod_count; i++) {
+                        html += `<th>Rod #${i}</th>`;
+                    }
+                    html += '</tr>';
+
+                    let rodColor = 'brown';
+                    let colors = [ // yellow replaced by gold for better contrast on white background
+                        'red', 'orange', 'gold', 'green', 'blue', 'indigo', 'violet', '#aaa', '#777', '#444',
+                    ];
+                    let rodHeight = result.disk_count + 2;
+                    let rodWidth = 1;
+                    let maxDiskWidth = rodWidth + (2 * result.disk_count); // center rod plus 1 unit on each side of rod
+                    result.moves.forEach((move) => {
+                        let row = [
+                            move.move_num,
+                            move.binary,
+                            move.move_disk_num,
+                            '.' + move.disk_positions.join(',') + '.'
+                        ];
+
+                        html += '<tr>' + row.map((col) => `<td>${col}</td>`).join('');
+                        for (let i = 1; i <= result.rod_count; i++) {
+                            let disksOnRod = move.rods[i];
+                            html += '<td>';
+
+                            // Draw protruding rod
+                            let drawRodHeight = rodHeight - disksOnRod.length;
+                            for (let j = 1; j <= drawRodHeight; j++) {
+                                let spacing = '&nbsp;'.repeat((maxDiskWidth - rodWidth) / 2);
+                                html += `<div style="color:${rodColor};"><b>`
+                                    + spacing
+                                    + '0' // use 0 to represent rod
+                                    + spacing
+                                    + '</b></div>'
+                            }
+
+                            // Draw each disk
+                            for (let k = 0; k < disksOnRod.length; k++) {
+                                let diskNum = disksOnRod[k];
+                                let diskWidth = rodWidth + (2 * diskNum);
+                                let diskColor = colors[(diskNum - 1) % colors.length];
+                                let spacing = '&nbsp;'.repeat((maxDiskWidth - diskWidth) / 2);
+                                let diskChar = (diskNum >= 10 && diskNum <= 15)
+                                    ? diskNum.toString(16).toUpperCase()
+                                    : diskNum.toString();
+
+                                html += `<div style="color:${diskColor};"><b>`
+                                    + spacing
+                                    + diskChar.toString().repeat(diskWidth).substring(0, diskWidth)
+                                    + spacing
+                                    + '</b></div>'
+                            }
+
+                            html += '</td>';
+                        }
+                        html += '</tr>';
+                    });
+                    html += '</table>'
+
+                    resultsElement.innerHTML = html;
+                });
+
+                disksInput.focus();
+                solveButton.click(); // show sample result for initial value
+            });
+
+            /**
+             * Solve Tower of Hanoi for no. of disks
+             *
+             * @private
+             * @param {int} diskCount - No. of disks.
+             * @returns {object} Format (using solution for 2 disks):
+             *     {
+             *         rod_count: 3,
+             *         disk_count: 2,
+             *         move_count: 3, // no. of moves to solve
+             *         start_rod_num: 1, // rod that all disks are on at the beginning
+             *         final_rod_num: 3, // final rod that all disks will be on when solved
+             *         moves: [
+             *             {
+             *                 move_num: 0, // initial state
+             *                 binary: '00',
+             *                 move_disk_num: 0,
+             *                 disk_positions: [1, 1],
+             *                 rods: {
+             *                     1: [1, 2], // disk 1 & disk 2 are on rod 1
+             *                     2: [],
+             *                     3: [],
+             *                 },
+             *             },
+             *             {
+             *                 move_num: 1,
+             *                 binary: '01',
+             *                 move_disk_num: 1,
+             *                 disk_positions: [2, 1],
+             *                 rods: {
+             *                     1: [2], // disk 2 is on rod 1
+             *                     2: [1], // disk 1 is on rod 2
+             *                     3: [],
+             *                 },
+             *             },
+             *             {
+             *                 move_num: 2,
+             *                 binary: '10',
+             *                 move_disk_num: 2,
+             *                 disk_positions: [2, 3],
+             *                 rods: {
+             *                     1: [],
+             *                     2: [1],
+             *                     3: [2],
+             *                 },
+             *             },
+             *             {
+             *                 move_num: 3, // final state
+             *                 binary: '11',
+             *                 move_disk_num: 1,
+             *                 disk_positions: [3, 3],
+             *                 rods: {
+             *                     1: [],
+             *                     2: [],
+             *                     3: [1, 2],
+             *                 },
+             *             }
+             *         ]
+             *     }
+             */
+            function solve(diskCount) {
+                // For variable naming, "index" means zero-based while "number" means one-based
+                let rodCount = 3; // fix at 3
+                let startRodNum = 1;
+                let isEvenNumberOfDisks = (0 === diskCount % 2);
+                let result = {
+                    rod_count: rodCount,
+                    disk_count: diskCount,
+                    move_count: Math.pow(2, diskCount) - 1,
+                    start_rod_num: startRodNum,
+                    final_rod_num: isEvenNumberOfDisks
+                        ? rodCount
+                        : Math.ceil(rodCount / 2), // middle rod if odd no. of disks
+                    moves: [],
+                };
+
+                // Go thru each move
+                for (let moveNum = 0; moveNum <= result.move_count; moveNum++) {
+                    let isOddMove = (1 === moveNum % 2);
+                    let binaryForMoveNum = moveNum.toString(2).padStart(diskCount, '0');
+                    let moveResult = {
+                        move_num: moveNum,
+                        binary: binaryForMoveNum,
+                        move_disk_num: 0,
+                        disk_positions: (moveNum > 0)
+                            ? []
+                            : [].fill(startRodNum, 0, diskCount - 1),
+                        rods: {},
+                    };
+
+                    for (let i = 1; i <= rodCount; i++) {
+                        moveResult.rods[i] = [];
+                    }
+
+                    if (moveNum > 0) {
+                        moveResult.move_disk_num = isOddMove
+                            ? 1
+                            : diskCount - binaryForMoveNum.lastIndexOf('1');
+                    }
+
+                    // From https://en.wikipedia.org/wiki/Tower_of_Hanoi#Binary_solution
+                    //     Let n be the number of greater disks that are located on the same peg as their first greater
+                    //     disk and add 1 if the largest disk is on the left peg. If n is even, the disk is located one
+                    //     peg to the right, if n is odd, the disk located one peg to the left (in case of even number
+                    //     of disks and vice versa otherwise).
+                    //
+                    // Accumulate instead of extracting substring of binary number (digits to the left of current digit
+                    // for disk) for each iteration in diskNum loop below
+                    let n = 0;
+
+                    let positions = [];
+                    let prevRodNum = startRodNum;
+                    let currRodNum = 0;
+                    let prevBinaryDigit = 0;
+                    let currBinaryDigit = 0;
+                    let direction = 1; // 1 for right, -1 for left
+                    for (let diskNum = diskCount; diskNum >= 1; diskNum--) { // go from largest disk to smallest disk
+                        // Binary digit for disk
+                        currBinaryDigit = parseInt(binaryForMoveNum.substr(diskCount - diskNum, 1));
+
+                        // Special handling for largest disk
+                        if (diskCount === diskNum) {
+                            currRodNum = (0 === currBinaryDigit ? startRodNum : result.final_rod_num);
+                            prevRodNum = currRodNum;
+                            prevBinaryDigit = currBinaryDigit;
+                            positions.unshift(currRodNum);
+                            n = (startRodNum === currRodNum) ? 1 : 0;
+
+                            continue;
+                        }
+
+                        // Current disk stacked on top of previous larger disk on the same rod
+                        if (currBinaryDigit === prevBinaryDigit) {
+                            // No need to save current rod number and binary digit cos same as previous
+                            positions.unshift(prevRodNum);
+                            n++; // Only incr n if curr disk on same rod as previous disk (its immediate greater disk)
+
+                            continue;
+                        }
+
+                        // Current disk on different rod from previous larger disk
+                        if (isEvenNumberOfDisks) {
+                            direction = (1 === n % 2) ? 1 : -1;
+                        } else {
+                            direction = (1 === n % 2) ? -1 : 1;
+                        }
+
+                        currRodNum = ((prevRodNum + direction) % rodCount) || rodCount; // left of rod #1 is last rod
+                        prevRodNum = currRodNum;
+                        prevBinaryDigit = currBinaryDigit;
+                        positions.unshift(currRodNum);
+                    }
+
+                    moveResult.disk_positions = positions;
+                    positions.forEach((diskPosition, diskIndex) => {
+                        moveResult.rods[diskPosition].push(diskIndex + 1);
+                    });
+
+                    result.moves.push(moveResult);
+                }
+
+                return result;
+            }
+        })();
+    </script>
+  </body>
+</html>
