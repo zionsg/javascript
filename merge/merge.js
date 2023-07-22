@@ -20,7 +20,7 @@ function merge(src, dst) {
         if ([undefined, null].includes(dstVal) || dstType !== srcType) {
             result[key] = srcVal;
         } else if (Array.isArray(srcVal) && Array.isArray(dstVal)) { // check as typeof returns 'object' for array
-            result[key] = dstVal; // replace entire array
+            result[key] = dstVal; // replace entire array as non-trivial to determine whether to append or override
         } else if ('object' === srcType) {
             result[key] = merge(srcVal, dstVal); // don't allow null (typeof is object) to destroy srcVal structure
         } else if ('function' === srcType) {
