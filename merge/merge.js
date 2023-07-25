@@ -17,7 +17,7 @@ function merge(src, dst) {
         let dstVal = dst?.[key];
         let dstType = typeof dstVal;
 
-        if ([undefined, null].includes(dstVal) || dstType !== srcType) {
+        if ([undefined, null].includes(dstVal)) {
             result[key] = srcVal;
         } else if (Array.isArray(srcVal) && Array.isArray(dstVal)) { // check as typeof returns 'object' for array
             result[key] = dstVal; // replace entire array as non-trivial to determine whether to append or override
