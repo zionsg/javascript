@@ -15,7 +15,6 @@ function merge(src, dst) {
         let srcVal = src[key];
         let srcType = typeof srcVal;
         let dstVal = dst?.[key];
-        let dstType = typeof dstVal;
 
         if ([undefined, null].includes(dstVal)) {
             result[key] = srcVal;
