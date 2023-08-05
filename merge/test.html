@@ -7,7 +7,7 @@
         c: [1, 2, 3],
         d: true,
         e: {
-            f: function () { return 'src'; },
+            f: function () { return 'from src'; },
             g: 3.14,
         },
     };
@@ -26,4 +26,6 @@
     let result = merge(src, dst);
     console.log(result.e.f());
     console.log(result);
+
+    console.log(merge({children:{}}, {children:{john:12, jane:9}}, ['children']));
 </script>
