@@ -1,0 +1,9 @@
+<pre id="results"></pre>
+
+<script src="draw-table.js"></script>
+<script>
+    let rows = [['A', 'B'], [1, 2], [3, 45], ['ccc', '']];
+    document.getElementById('results').innerHTML = drawTable(rows, {
+        rows_per_section: 0,
+    });
+</script>
