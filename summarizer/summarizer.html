@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Summarizer</title>
+
+    <style>
+      html,
+      body {
+        font-family: monospace;
+        font-size: 16px;
+      }
+
+      body {
+        padding: 0 10px;
+      }
+
+      code {
+        padding: 2px;
+        color: #c7254e;
+        background-color: #f9f2f4;
+      }
+
+      button,
+      textarea {
+        font-family: monospace;
+        font-size: 1em;
+      }
+
+      textarea {
+        height: 30vh;
+        width: 90vw;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h3>Summarizer</h3>
+
+    <ul>
+      <li>Each line consists of columns delimited by <code>|</code> character.</li>
+      <li>Empty lines will be ignored, columns will be trimmed.</li>
+      <li>1st line assumed to be header row</li>
+      <li>Last line assumed to be footer row containing functions to run on all content rows for each column.</li>
+      <li>
+        Columns in content rows can contain functions in the format <code>{{FUNCTION,COLUMN_NUMBER}}</code>.
+        Supported functions in columns of content rows (decimal places, if any, will be capped at 3):
+        <ul>
+          <li>
+            DIFF - Difference of value in <code>COLUMN_NUMBER</code> for current row compared
+            to the value for the same column in the previous row. Value will always be 0 for the 1st content row.
+          </li>
+          <li>
+            DIFFPERCENT - Percentage difference of value in <code>COLUMN_NUMBER</code> for current row compared
+            to the value for the same column in the previous row. Value will always be 0 for the 1st content row.
+          </li>
+        </ul>
+      </li>
+      <li>
+        Supported functions in columns of footer row (decimal places, if any, will be capped at 3):
+        <ul>
+          <li>AVG - Average of all rows.</li>
+          <li>DIFF - Difference between number in last row and number in 1st row.</li>
+          <li>DIFFDATEMS - Difference between date in last row and date in 1st row, in milliseconds.</li>
+          <li>SUM - Sum of all rows.</li>
+          <li>X - Use this to indicate no function.</li>
+        </ul>
+      </li>
+    </ul>
+
+    <b>INPUT TEXT:</b><br>
+    <textarea name="text" rows="15" cols="80"></textarea>
+    <br><br>
+
+    <button name="submit">Summarize</button><br><br>
+
+    <pre id="result"></pre>
+    <p>&nbsp;</p>
+
+    <script>
+        (function () {
+            let textElement = null;
+            let submitButton = null;
+            let resultElement = null;
+
+            window.addEventListener('DOMContentLoaded', () => {
+                textElement = document.querySelector('[name="text"]');
+                submitButton = document.querySelector('[name="submit"]');
+                resultElement = document.querySelector('#result');
+
+                textElement.value = `
+                    Timestamp|Event|Fee|% Diff|Diff
+                    2023-08-14T07:39:02.843Z|Begin|80|{{DIFFPERCENT,3}}|{{DIFF,3}}
+                    2023-08-14T07:39:16.506Z|Speak|240|{{DIFFPERCENT,3}}|{{DIFF,3}}
+                    2023-08-14T07:40:15Z|Close|512|{{DIFFPERCENT,3}}|{{DIFF,3}}
+                    DIFFDATEMS|X|SUM|SUM|AVG
+                `;
+
+                submitButton.addEventListener('click', (event) => {
+                    resultElement.innerHTML = 'RESULT:\n' + summarize(textElement.value);
+                });
+
+                submitButton.click();
+            });
+
+            /**
+             * @param {string} text
+             * @returns {string}
+             */
+            function summarize(text) {
+                let lines = text.trim().split('\n');
+                let columnDelimiter = '|';
+
+                let rows = [];
+                let cols = [];
+                let maxColumnCnt = 0;
+                lines.forEach((line) => {
+                    if ('' === line.trim()) {
+                        return;
+                    }
+
+                    cols = line.split(columnDelimiter).map((val) => val.trim());
+                    maxColumnCnt = Math.max(maxColumnCnt, cols.length);
+                    rows.push(cols);
+                });
+
+                let headerRow = rows[0];
+                let footerRow = rows[rows.length - 1];
+                let contentRows = rows.splice(1, rows.length - 2);
+                let firstRow = contentRows[0];
+                let lastRow = contentRows[contentRows.length - 1];
+
+                // Parse functions in columns of content rows
+                let row = [];
+                let prevRow = [];
+                let matches = [];
+                let fn = '';
+                let colNum = 0;
+                let colIndex = 0;
+                let value = '';
+                for (let i = 0; i < contentRows.length; i++) {
+                    row = contentRows[i];
+                    prevRow = contentRows[i - 1] ?? [];
+
+                    for (let j = 0; j < row.length; j++) {
+                        matches = row[j].match(/\{\{([A-Z]+),([0-9]+)\}\}/i);
+                        if (!matches) {
+                            continue;
+                        }
+
+                        if (0 === i) {
+                            contentRows[i][j] = 0;
+                            continue;
+                        }
+
+                        fn = matches[1];
+                        colNum = matches[2];
+                        colIndex = colNum - 1;
+                        value = '';
+                        switch (fn) {
+                            case 'DIFF': {
+                                value = setPrecision(
+                                    parseFloat(row[colIndex] ?? 0) - parseFloat(prevRow[colIndex] ?? 0)
+                                );
+                                break;
+                            }
+
+                            case 'DIFFPERCENT': {
+                                value = setPrecision(
+                                    (parseFloat(row[colIndex] ?? 0) - parseFloat(prevRow[colIndex] ?? 0))
+                                    / parseFloat(prevRow[colIndex] ?? 0)
+                                    * 100.0
+                                );
+                                break;
+                            }
+
+                            default: {
+                                value = '';
+                                break;
+                            }
+                        }
+
+                        contentRows[i][j] = value;
+                    }
+                }
+
+                // Parse functions in columns of footer row
+                let summaryRow = [];
+                footerRow.forEach((columnFunction, columnIndex) => {
+                    fn = (columnFunction || '').toString().toUpperCase() || 'X';
+
+                    value = '';
+                    switch (fn) {
+                        case 'AVG': {
+                            value = 0;
+                            contentRows.forEach((row) => {
+                                value += parseFloat(row[columnIndex] ?? 0);
+                            });
+                            value = setPrecision(1.0 * value / contentRows.length);
+                            break;
+                        }
+
+                        case 'DIFF': {
+                            value = setPrecision(
+                                parseFloat(lastRow[columnIndex] ?? 0) - parseFloat(firstRow[columnIndex] ?? 0)
+                            );
+                            break;
+                        }
+
+                        case 'DIFFDATEMS': {
+                            value = (new Date(lastRow[columnIndex])) - (new Date(firstRow[columnIndex]));
+                            break;
+                        }
+
+                        case 'SUM': {
+                            value = 0;
+                            contentRows.forEach((row) => {
+                                value += parseFloat(row[columnIndex] ?? 0);
+                            });
+                            value = setPrecision(value);
+                            break;
+                        }
+
+                        default: {
+                            value = ''; // caters for X as well
+                            break;
+                        }
+                    }
+
+                    summaryRow.push(value);
+                });
+
+                let result = [];
+                result.push(headerRow);
+                result.push(...contentRows);
+                result.push(footerRow);
+                result.push(summaryRow);
+
+                return drawTable(result);
+            }
+
+            /**
+             * Cap decimal places, if any
+             *
+             * @param {(int|float)} value
+             * @returns {string}
+             */
+            function setPrecision(value) {
+                if ((value ?? 0).toString().indexOf('.') !== -1) {
+                    return value.toFixed(3);
+                }
+
+                return value;
+            }
+
+            /**
+             * Draw ASCII table
+             *
+             * @link https://github.com/zionsg/javascript/blob/master/drawTable/draw-table.js
+             * @example drawTable([['A', 'B'], [1, 2], [3, 45], ['ccc', '']], { rows_per_section: 0 }) returns
+             *     +-----+----+
+             *     | A   | B  |
+             *     +-----+----+
+             *     | 1   | 2  |
+             *     | 3   | 45 |
+             *     +-----+----+
+             *     | ccc |    |
+             *     +-----+----+
+             * @param {array[]} rows - Array of same-length arrays, e.g. [ ['A', 'B'], ['cc', ''] ].
+             * @param {object} options - Options for drawing table.
+             * @param {boolean} options.has_header_row=true - Whether table has header row.
+             * @param {boolean} options.has_footer_row=true - Whether table has footer row.
+             * @param {int} options.rows_per_section=1 - Rows per section. Divider will be
+             *     inserted after every section.
+             * @param {int[]} options.max_column_widths=[] - Maximum width for each column,
+             *     used for padding columns in each row. Will be computed if unspecified.
+             *     E.g. [3, 2] would mean that max width for 1st column (index 0) is
+             *     3 characters, and max width for 2nd column (index 1) is 2 characters.
+             * @returns {string}
+             */
+            function drawTable(rows, options) {
+                let opts = Object.assign(
+                    {
+                        has_header_row: true,
+                        has_footer_row: true,
+                        rows_per_section: 1,
+                        max_column_widths: [],
+                    },
+                    options || {}
+                );
+
+                // Get max width for each column if not provided
+                if (0 === Object.keys(opts.max_column_widths || {}).length) {
+                    rows.forEach((row, rowIndex) => {
+                        row.forEach((col, colIndex) => {
+                            opts.max_column_widths[colIndex] = Math.max(
+                                (col ?? '').toString().length,
+                                opts.max_column_widths[colIndex] ?? 0
+                            );
+                        });
+                    });
+                }
+
+                // Divider line
+                let resultRows = [];
+                let dividerRow = [];
+                let divider = '';
+                opts.max_column_widths.forEach((colWidth, colIndex) => {
+                    dividerRow.push('-'.repeat(colWidth || 0));
+                })
+                divider = '+-' + dividerRow.join('-+-') + '-+';
+
+                let rowCnt = rows.length;
+                let currRow = [];
+                resultRows.push(divider);
+                rows.forEach((row, rowIndex) => {
+                    currRow = [];
+                    row.forEach((col, colIndex) => {
+                        currRow.push((col ?? '').toString().padEnd(opts.max_column_widths[colIndex] ?? 0, ' '));
+                    });
+                    resultRows.push('| ' + currRow.join(' | ') + ' |');
+
+                    // Insert divider
+                    if (
+                        (opts.has_header_row && 0 === rowIndex) // header row
+                        || (opts.has_footer_row && (rowCnt - 1) === (rowIndex + 1)) // row before footer row
+                        || (opts.rows_per_section > 0 && (0 === rowIndex % opts.rows_per_section)) // section
+                    ) {
+                        resultRows.push(divider);
+                    }
+                });
+                if (resultRows[resultRows.length - 1] !== divider) {
+                    resultRows.push(divider);
+                }
+
+                return resultRows.join('\n');
+            }
+
+        })();
+    </script>
+  </body>
+</html>
