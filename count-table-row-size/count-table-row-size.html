@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Count Table Row Size</title>
+
+    <style>
+      html,
+      body {
+        font-family: monospace;
+        font-size: 16px;
+      }
+
+      body {
+        padding: 0 10px;
+      }
+
+      code {
+        padding: 2px;
+        color: #c7254e;
+        background-color: #f9f2f4;
+      }
+
+      button,
+      textarea {
+        font-family: monospace;
+        font-size: 1em;
+      }
+
+      textarea {
+        height: 30vh;
+        width: 90vw;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h3>Count Table Row Size</h3>
+
+    <ul>
+      <li>This tool supports both MySQL and PostgreSQL.</li>
+      <li>MySQL has a maximum row size limit of 65535 bytes.</li>
+      <li>The maximum size of a query result in MySQL is 1 GB.</li>
+    </ul>
+
+    <b>Paste SQL containing DDL statements for database schema below:</b><br>
+    <textarea name="text" rows="25" cols="80">
+      -- MySQL
+      CREATE TABLE `actor` (
+        `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+        `name` varchar(100) NOT NULL,
+        `commission_rate` decimal(9,6) NOT NULL DEFAULT '0.000000',
+        `organization_id` int unsigned NOT NULL,
+        `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`)
+      ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+      -- PostgreSQL (does not support UNSIGNED)
+      CREATE TABLE public.organization (
+          id integer NOT NULL,
+          name character varying(255) DEFAULT ''::character varying NOT NULL,
+          remarks text DEFAULT ''::text NOT NULL
+          created_at integer DEFAULT 0 NOT NULL,
+      );
+    </textarea>
+    <br><br>
+
+    <button name="submit">Count row size per table</button>
+    <br><br>
+
+    <pre id="results"></pre>
+
+    <script>
+        (function () {
+            let submitButton = null;
+
+            window.addEventListener('DOMContentLoaded', () => {
+                submitButton = document.querySelector('[name="submit"]');
+
+                submitButton.addEventListener('click', (event) => {
+                    let result = countTableRowSize(document.querySelector('[name="text"]').value);
+                    document.querySelector('#results').innerHTML =
+                        'Row size per table in bytes:\n' + JSON.stringify(result, null, 2);
+                });
+
+                submitButton.click();
+            });
+
+            /**
+             * Parse raw SQL to count row size of each table in bytes
+             *
+             * @link https://dev.mysql.com/doc/refman/8.0/en/storage-requirements.html
+             * @param {string} sql - Raw SQL.
+             * @returns {object} Key-value pairs where key is table name and value
+             *     is row size in bytes.
+             */
+            function countTableRowSize(sql) {
+                let result = {
+                    tables: {},
+                };
+
+                let lines = sql.split('\n');
+                let currTable = '';
+                let matches = [];
+                let value = '';
+                let bytes = 0;
+                lines.forEach((line) => {
+                    line = line.trim();
+
+                    // MySQL: CREATE TABLE `actor`
+                    // PostgreSQL: CREATE TABLE public.actor
+                    matches = line.match(/^CREATE TABLE [^a-z]?([a-z\.]+)[^a-z]?/i);
+                    if (matches) {
+                        currTable = matches[1];
+                        result.tables[currTable] = 0;
+                        return;
+                    }
+
+                    if (!currTable) {
+                        return;
+                    }
+
+                    // MySQL ends CREATE TABLE with: ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
+                    // PostgreSQL ends CREATE TABLE with: );
+                    matches = line.match(/^\)[^;]*;$/i);
+                    if (matches) {
+                        currTable = '';
+                        return;
+                    }
+
+                    // From this point, should be statements for creating columns in table
+                    // MySQL: TEXT, TINYTEXT, MEDIUMTEXT, LONGTEXT
+                    // PostgreSQL: TEXT
+                    matches = line.match(/\s(tiny|medium|long)?(text)\s/i);
+                    if (matches) {
+                        value = (matches[1] || '').toLowerCase();
+                        if ('long' === value) {
+                            bytes = 4;
+                        } else if ('medium' === value) {
+                            bytes = 3;
+                        } else if ('tiny' === value) {
+                            bytes = 1;
+                        } else {
+                            bytes = 2; // TEXT
+                        }
+
+                        // This is the bytes for the overhead storage in the record
+                        // itself, does not count the storage outside of the record
+                        result.tables[currTable] += bytes;
+                        return;
+                    }
+
+                    // MySQL: varchar(255)
+                    // PostgreSQL: character varying(255)
+                    matches = line.match(/\s(varchar|character varying)\(([0-9]+)\)\s/i);
+                    if (matches) {
+                        result.tables[currTable] += parseInt(matches[2]);
+                        return;
+                    }
+
+                    // MySQL: INT, TINYINT, SMALLINT, MEDIUMINT, BIGINT (supports unsigned)
+                    // PostgreSQL: integer, smallint, bigint, serial, smallserial, bigserial (does not support unsigned)
+                    matches = line.match(/\s(tiny|small|medium|big)?(int|integer|serial)\s/i);
+                    if (matches) {
+                        value = (matches[1] || '').toLowerCase();
+                        if ('big' === value) {
+                            bytes = 8;
+                        } else if ('medium' === value) {
+                            bytes = 3;
+                        } else if ('small' === value) {
+                            bytes = 2;
+                        } else if ('tiny' === value) {
+                            bytes = 1;
+                        } else {
+                            bytes = 4; // INT
+                        }
+
+                        result.tables[currTable] += bytes;
+                        return;
+                    }
+
+                    // MySQL: DECIMAL, NUMERIC
+                    // PostgreSQL: DECIMAL, NUMERIC
+                    matches = line.match(/\s(decimal|numeric)\s/i);
+                    if (matches) {
+                        // As per https://dev.mysql.com/doc/refman/8.0/en/precision-math-decimal-characteristics.html
+                        result.tables[currTable] += 4;
+                        return;
+                    }
+
+                    // DATE, TIME, DATETIME, TIMESTAMP
+                    matches = line.match(/\s(date|time|datetime|timestamp)\s/i);
+                    if (matches) {
+                        value = (matches[1] || '').toLowerCase();
+                        if ('date' === value) {
+                            bytes = 3;
+                        } else if ('time' === value) {
+                            bytes = 3;
+                        } else if ('datetime' === value) {
+                            bytes = 8;
+                        } else if ('timestamp' === value) {
+                            bytes = 4;
+                        } else {
+                            bytes = 0;
+                        }
+
+                        result.tables[currTable] += bytes;
+                        return;
+                    }
+                });
+
+                return result;
+            }
+        })();
+    </script>
+  </body>
+</html>
