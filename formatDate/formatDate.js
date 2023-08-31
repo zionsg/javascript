@@ -62,7 +62,8 @@
  * @param {int} localTimezoneOffsetMins=0 - Client's local timezone offset
  *     from UTC in minutes, e.g. 480 if client is in Singapore timezone +08:00.
  *     Note that this value may be negative, e.g. -570 for Marquesas Islands
- *     timezone -09:30.
+ *     timezone -09:30. `(0 - (new Date()).getTimezoneOffset())` can be used
+ *     to provide the value for this, especially when run in the browser.
  * @returns {(string|int|object|Date)} Empty string returned if dateValue
  *     cannot be converted to a Date object, else as per return format
  *     specified in `format`.
