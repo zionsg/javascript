@@ -2,7 +2,7 @@
 
 <script>
     let timestamp = 1680287445000; // Fri 2023-03-31T18:30:45Z (UTC), Sat 2023-04-01T02:30:45+08:00 (SGT)
-    let offset = 480; // Singapore (SGT) timezone offset is +08:00, i.e. 480 mins from UTC
+    let offset = 0 - (new Date()).getTimezoneOffset(); // Singapore (SGT) timezone offset is +08:00, i.e. 480 mins from UTC
     console.log(1, formatDate(timestamp, 'weekday-long', 'none'));
     console.log(2, formatDate(timestamp, 'weekday-long', 'utc2local', offset));
     console.log(3, formatDate(timestamp, 'weekday-long', 'local2utc', offset));
