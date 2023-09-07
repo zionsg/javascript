@@ -45,9 +45,9 @@
     <ul>
       <li>
         Formula used to calculate color brightness is from
-        <a href="http://www.w3.org/TR/AERT#color-contrast"
-          target="_blank" rel="noopener">http://www.w3.org/TR/AERT#color-contrast</a>.
-          In general, if brightness is more than 125, use black as foreground color, else use white.
+        <a href="https://www.w3.org/TR/AERT#color-contrast"
+          target="_blank" rel="noopener">https://www.w3.org/TR/AERT#color-contrast</a>.
+          For good contrast, if brightness is more than 125, use black as foreground color, else use white.
       </li>
       <li>
         Formulas used to calculate luminosity, hue and saturation are from
@@ -67,6 +67,7 @@
       <br><br>
 
       <button type="submit">Generate background colors</button>
+      <i>Only background colors that contrast well with the selected text color will be shown.</i>
     </form>
     <br><br>
 
@@ -115,7 +116,7 @@
                             let max = Math.max(...rgb);
                             let min = Math.min(...rgb);
 
-                            // See http://www.w3.org/TR/AERT#color-contrast
+                            // See https://www.w3.org/TR/AERT#color-contrast
                             let brightness = Math.round((dec[r] * 299) + (dec[g] * 587) + (dec[b] * 114)) / 1000;
                             let foregroundColor = (brightness > 125) ? 'black' : 'white';
                             if (foregroundColor !== textColor) {
