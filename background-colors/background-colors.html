@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Background Colors To Match Text Color</title>
+
+    <style>
+      html,
+      body {
+        font-family: monospace;
+        font-size: 16px;
+      }
+
+      body {
+        padding: 0 10px;
+      }
+
+      button,
+      input {
+        font-family: monospace;
+        font-size: 1em;
+      }
+
+      table {
+        border-collapse: collapse;
+        border-spacing: 0;
+      }
+
+      th {
+        background: #ccc;
+      }
+
+      th,
+      td {
+        border: 1px solid black;
+        padding: 0.5rem;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h3>Background Colors To Match Text Color</h3>
+
+    <ul>
+      <li>
+        Formula used to calculate color brightness is from
+        <a href="http://www.w3.org/TR/AERT#color-contrast"
+          target="_blank" rel="noopener">http://www.w3.org/TR/AERT#color-contrast</a>.
+          In general, if brightness is more than 125, use black as foreground color, else use white.
+      </li>
+      <li>
+        Formulas used to calculate luminosity, hue and saturation are from
+        <a href="https://donatbalipapp.medium.com/colours-maths-90346fb5abda"
+          target="_blank" rel="noopener" >https://donatbalipapp.medium.com/colours-maths-90346fb5abda</a>.
+      </li>
+    </ul>
+
+    <form>
+      <b>Choose text color:</b><br>
+      Black <input name="text-color" type="radio" value="black">
+      White <input name="text-color" type="radio" value="white" checked>
+      <br><br>
+
+      <b>Enter comma-delimited list of hex values to use in generating background colors (max 10):</b><br>
+      <input name="hex-values" type="text" size="50" value="ff,cc,aa,88,66,44,22,00">
+      <br><br>
+
+      <button type="submit">Generate background colors</button>
+    </form>
+    <br><br>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Color</th>
+          <th>Brightness</th>
+          <th>Luminosity %</th>
+          <th>Hue °</th>
+          <th>Saturation %</th>
+        </tr>
+    </table>
+
+    <script>
+        (function () {
+            window.addEventListener('DOMContentLoaded', () => {
+                document.querySelector('[type="submit"]').addEventListener('click', (event) => {
+                    event.preventDefault();
+                    onSubmit();
+                });
+
+                onSubmit();
+            });
+
+            function onSubmit() {
+                let table = document.querySelector('table');
+                let hexValues = document.querySelector('[name="hex-values"]').value.trim() || 'ff,00';
+                let hex = hexValues.split(',').map((val) => val.trim()).slice(0, 10); // max 10 elements
+                let dec = hex.map((hex) => parseInt(hex, 16));
+                let textColor = document.querySelector('[name="text-color"]:checked').value;
+                textColor = ['white', 'black'].includes(textColor) ? textColor : 'white';
+
+                let valueCnt = hex.length;
+                for (let r = 0; r < valueCnt; r++) {
+                    for (let g = 0; g < valueCnt; g++) {
+                        for (let b = 0; b < valueCnt; b++) {
+                            let color = `#${hex[r]}${hex[g]}${hex[b]}`;
+                            let rgb = [dec[r] / 255, dec[g] / 255, dec[b] / 255];
+                            let max = Math.max(...rgb);
+                            let min = Math.min(...rgb);
+
+                            // See http://www.w3.org/TR/AERT#color-contrast
+                            let brightness = Math.round((dec[r] * 299) + (dec[g] * 587) + (dec[b] * 114)) / 1000;
+                            let foregroundColor = (brightness > 125) ? 'black' : 'white';
+                            if (foregroundColor !== textColor) {
+                                continue;
+                            }
+
+                            // See https://donatbalipapp.medium.com/colours-maths-90346fb5abda
+                            let luminosity = 0.5 * (max + min);
+                            let saturation =  (1 === luminosity)
+                                ? 0
+                                : (max - min) / (1 - Math.abs((2 * luminosity) - 1));
+                            saturation = saturation || 0; // could be NaN due to division by zero
+
+                            let hue = 0;
+                            let R = rgb[0];
+                            let G = rgb[1];
+                            let B = rgb[2];
+                            if (R >= G && G >= B) {
+                                // (A) If R ≥ G ≥ B  |  H = 60° x [(G-B)/(R-B)]
+                                hue = 60 * ((G - B) / (R - B));
+                            } else if (G > R && R >= B) {
+                                // (B) If G > R ≥ B  |  H = 60° x [2 - (R-B)/(G-B)]
+                                hue = 60 * (2 - ((R - B) / (G - B)));
+                            } else if (G >= B && B > R) {
+                                // (C) If G ≥ B > R  |  H = 60° x [2 + (B-R)/(G-R)]
+                                hue = 60 * (2 + ((B - R) / (G - R)));
+                            } else if (B > G && G > R) {
+                                // (D) If B > G > R  |  H = 60° x [4 - (G-R)/(B-R)]
+                                hue = 60 * (4 - ((G - R) / (B - R)));
+                            } else if (B > R && R >= G) {
+                                // (E) If B > R ≥ G  |  H = 60° x [4 + (R-G)/(B-G)]
+                                hue = 60 * (4 + ((R - G) / (B - G)));
+                            } else if (R >= B && B > G) {
+                                // (F) If R ≥ B > G  |  H = 60° x [6 - (B-G)/(R-G)]
+                                hue = 60 * (6 - ((B - G) / (R - G)));
+                            }
+                            hue = hue || 0; // could be NaN due to division by zero
+
+                            let tr = document.createElement('tr');
+                            let cells = [
+                                ['brightness', brightness.toFixed(0)],
+                                ['luminosity', (luminosity * 100).toFixed(0)],
+                                ['hue', hue.toFixed(0)],
+                                ['saturation', (saturation * 100).toFixed(0)],
+                            ];
+                            tr.innerHTML = `<td style="background:${color}; color:${textColor};">${color}</td>`;
+                            cells.forEach((cell) => {
+                                tr.innerHTML += `<td title="${cell[0]}">${cell[1]}</td>`;
+                            });
+                            table.appendChild(tr);
+                        }
+                    }
+                }
+            } // end onSubmit
+        })();
+    </script>
+  </body>
+</html>
