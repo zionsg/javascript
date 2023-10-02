@@ -41,29 +41,36 @@
     <ul>
       <li>Each line consists of columns delimited by <code>|</code> character.</li>
       <li>Empty lines will be ignored, columns will be trimmed.</li>
-      <li>1st line assumed to be header row</li>
-      <li>Last line assumed to be footer row containing functions to run on all content rows for each column.</li>
+      <li>1st line assumed to be header row.</li>
+      <li>
+        Last line assumed to be footer row containing summary functions to run on all content rows for each column.
+      </li>
       <li>
         Columns in content rows can contain functions in the format <code>{{FUNCTION,COLUMN_NUMBER}}</code>.
-        Supported functions in columns of content rows (decimal places, if any, will be capped at 3):
+        Supported functions in columns of content rows (decimal places, if any, will be capped at 2):
         <ul>
           <li>
-            DIFF - Difference of value in <code>COLUMN_NUMBER</code> for current row compared
-            to the value for the same column in the previous row. Value will always be 0 for the 1st content row.
+            DIFF - Difference of value in <code>COLUMN_NUMBER</code> of current row compared
+            to the value in the same column of the previous row. Value will always be 0 for the 1st content row.
           </li>
           <li>
-            DIFFPERCENT - Percentage difference of value in <code>COLUMN_NUMBER</code> for current row compared
-            to the value for the same column in the previous row. Value will always be 0 for the 1st content row.
+            DIFFDATE - Difference of date in <code>COLUMN_NUMBER</code> of current row compared
+            to date in the same column of the previous row. Value will always be 0 for the 1st content row.
+          </li>
+          <li>
+            DIFFPERCENT - Percentage difference of value in <code>COLUMN_NUMBER</code> of current row compared
+            to the value in the same column of the previous row. Value will always be 0 for the 1st content row.
           </li>
         </ul>
       </li>
       <li>
-        Supported functions in columns of footer row (decimal places, if any, will be capped at 3):
+        Supported summary functions in columns of footer row (decimal places, if any, will be capped at 2):
         <ul>
-          <li>AVG - Average of all rows.</li>
-          <li>DIFF - Difference between number in last row and number in 1st row.</li>
-          <li>DIFFDATEMS - Difference between date in last row and date in 1st row, in milliseconds.</li>
-          <li>SUM - Sum of all rows.</li>
+          <li>AVG - Average of all content rows.</li>
+          <li>DIFF - Difference between values in last content row and 1st content row.</li>
+          <li>DIFFDATE - Difference between dates in last content row and 1st content row.</li>
+          <li>DIFFPERCENT - Percentage difference between values in last content row and 1st content row.</li>
+          <li>SUM - Sum of all content rows.</li>
           <li>X - Use this to indicate no function.</li>
         </ul>
       </li>
@@ -90,11 +97,11 @@
                 resultElement = document.querySelector('#result');
 
                 textElement.value = `
-                    Timestamp|Event|Fee|% Diff|Diff
-                    2023-08-14T07:39:02.843Z|Begin|80|{{DIFFPERCENT,3}}|{{DIFF,3}}
-                    2023-08-14T07:39:16.506Z|Speak|240|{{DIFFPERCENT,3}}|{{DIFF,3}}
-                    2023-08-14T07:40:15Z|Close|512|{{DIFFPERCENT,3}}|{{DIFF,3}}
-                    DIFFDATEMS|X|SUM|SUM|AVG
+                    Timestamp|Event|Fee|% Diff|Diff|Date Diff
+                    2023-08-14T07:39:02.843Z|Begin|80|{{DIFFPERCENT,3}}|{{DIFF,3}}|{{DIFFDATE,1}}
+                    2023-08-14T07:39:16.506Z|Speak|240.50|{{DIFFPERCENT,3}}|{{DIFF,3}}|{{DIFFDATE,1}}
+                    2023-08-14T07:40:15Z|Close|512|{{DIFFPERCENT,3}}|{{DIFF,3}}|{{DIFFDATE,1}}
+                    DIFFDATE|X|SUM|SUM|AVG|X
                 `;
 
                 submitButton.addEventListener('click', (event) => {
@@ -105,6 +112,53 @@
             });
 
             /**
+             * Convert milliseconds to other time units
+             *
+             * @public
+             * @example Value of 123456789 yields { days: '01', hrs: '10', mins: '17', secs: '36', ms: '789' }.
+             * @param {int} milliseconds
+             * @param {string[]} unitsToOmit - Units to omit from result,
+             *     e.g. ['days', 'ms'].
+             * @returns {object} Values for time units will be padded to
+             *     2 digits and cast as strings to make it easy for caller
+             *     to use.
+             */
+            function convertMillisecondsToUnits(milliseconds, unitsToOmit = []) {
+                let conversion = { // unit => <no. of milliseconds in unit>
+                    days: 86400000,
+                    hrs: 3600000,
+                    mins: 60000,
+                    secs: 1000,
+                    ms: 1,
+                };
+
+                (unitsToOmit || []).forEach((unit) => {
+                    delete conversion[unit];
+                });
+
+                let result = {};
+                let ms = parseInt(milliseconds);
+                let value = 0;
+                let msInUnit = 0;
+                Object.keys(conversion).forEach((unit) => {
+                    msInUnit = conversion[unit];
+                    value = Math.floor(ms / msInUnit);
+
+                    result[unit] = value;
+                    ms = ms - (value * msInUnit);
+                });
+
+                // Pad values to at least 2 digits
+                Object.keys(result).forEach((unit) => {
+                    result[unit] = result[unit].toString().padStart(2, '0');
+                });
+
+                return result;
+            }
+
+            /**
+             * Summarize text
+             *
              * @param {string} text
              * @returns {string}
              */
@@ -139,6 +193,7 @@
                 let colNum = 0;
                 let colIndex = 0;
                 let value = '';
+                let units = null;
                 for (let i = 0; i < contentRows.length; i++) {
                     row = contentRows[i];
                     prevRow = contentRows[i - 1] ?? [];
@@ -163,6 +218,13 @@
                                 value = setPrecision(
                                     parseFloat(row[colIndex] ?? 0) - parseFloat(prevRow[colIndex] ?? 0)
                                 );
+                                break;
+                            }
+
+                            case 'DIFFDATE': {
+                                value = (new Date(row[colIndex] ?? 0)) - (new Date(prevRow[colIndex] ?? 0));
+                                units = convertMillisecondsToUnits(value);
+                                value = `${units.days}d ${units.hrs}h ${units.mins}m ${units.secs}s ${units.ms}ms`;
                                 break;
                             }
 
@@ -208,8 +270,10 @@
                             break;
                         }
 
-                        case 'DIFFDATEMS': {
+                        case 'DIFFDATE': {
                             value = (new Date(lastRow[columnIndex])) - (new Date(firstRow[columnIndex]));
+                            units = convertMillisecondsToUnits(value);
+                            value = `${units.days}d ${units.hrs}h ${units.mins}m ${units.secs}s ${units.ms}ms`;
                             break;
                         }
 
@@ -244,14 +308,15 @@
              * Cap decimal places, if any
              *
              * @param {(int|float)} value
+             * @param {int} precision=3 - No. of decimal places to cap to.
              * @returns {string}
              */
-            function setPrecision(value) {
+            function setPrecision(value, precision = 2) {
                 if ((value ?? 0).toString().indexOf('.') !== -1) {
-                    return value.toFixed(3);
+                    return value.toFixed(precision);
                 }
 
-                return value;
+                return value.toString();
             }
 
             /**
@@ -336,7 +401,6 @@
 
                 return resultRows.join('\n');
             }
-
         })();
     </script>
   </body>
