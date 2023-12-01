@@ -67,7 +67,7 @@
       <li><code>Message</code> key will be extracted from JSON on each line.</li>
       <li>
         After downloading the results as a NDJSON file, <a target="_blank" rel="noopener" href="https://jqlang.github.io/jq/">jq</a> can be used to extract specific fields into a CSV file:<br>
-        <code>(echo "bounceType,email,error" && cat tmp.ndjson | jq --raw-output '[.bounce.bounceType, .mail.destination[0], .bounce.bouncedRecipients[0].diagnosticCode] | @csv') &gt; tmp.csv</code>
+        <code>(echo "UTC Timestamp,Bounce Type,Email,Error" && cat tmp.ndjson | jq --raw-output '[.bounce.timestamp, .bounce.bounceType, .mail.destination[0], .bounce.bouncedRecipients[0].diagnosticCode] | @csv') &gt; tmp.csv</code>
       </li>
     </ul>
 
