@@ -39,13 +39,6 @@
       a:hover {
         color: #ff00ff;
       }
-
-      #result-clipboard {
-        /* to facilitate copying to clipboard - cannot set display:none or visibility:hidden else cannot work */
-        height: 1px;
-        opacity: 0;
-        width: 1px;
-      }
     </style>
   </head>
 
@@ -79,16 +72,17 @@
     <br><br>
     <button id="convert" onclick="extract();">Extract messages</button><br><br>
 
-    <b>RESULTS (click <a id="copy-to-clipboard-link" href="#">here</a> to copy to clipboard):</b>
-    <textarea id="result-clipboard"></textarea>
+    <b>
+      RESULTS (click <a id="download-ndjson-link" href="#">here</a> to download NDJSON text file):
+    </b>
     <pre id="result"></pre>
     <p>&nbsp;</p>
 
     <script>
         let textElement = document.getElementById('text');
-        let copyToClipboardLink = document.getElementById('copy-to-clipboard-link');
-        let resultClipboard = document.getElementById('result-clipboard');
+        let downloadNdJsonLink = document.getElementById('download-ndjson-link');
         let resultElement = document.getElementById('result');
+        let result = '';
 
         /**
          * Onload listener to load sample text
@@ -103,7 +97,7 @@
             `.trim();
 
             extract();
-            onCopyToClipboard();
+            onDownloadNdJson();
             textElement.focus();
         });
 
@@ -116,7 +110,7 @@
             let text = textElement.value.trim();
             let lines = text.split('\n');
 
-            let result = '';
+            result = '';
             lines.forEach((line, lineIndex) => {
                 line = line.trim();
                 if (!line) {
@@ -147,22 +141,25 @@
 
             // Output result to page
             resultElement.innerHTML = result;
-
-            // Store results in element for copying to clipboard
-            resultClipboard.value = result;
         }
 
         /**
-         * Copy results to clipboard when link is clicked
+         * Download results as NDJSON when link is clicked
          *
          * @returns {void}
          */
-        function onCopyToClipboard() {
-            copyToClipboardLink.addEventListener('click', (event) => {
-                resultClipboard.select();
-                resultClipboard.setSelectionRange(0, 99999); // for mobile devices
-                document.execCommand('copy');
-                textElement.focus(); // set focus back to input textarea
+        function onDownloadNdJson() {
+            downloadNdJsonLink.addEventListener('click', (event) => {
+                event.preventDefault();
+
+                let blob = new Blob([result], { type : 'text/plain' });
+                let url = window.URL.createObjectURL(blob);
+                let element = document.createElement('a');
+                element.href = url;
+                element.download = 'tmp-' + Date.now() + '.ndjson';
+                element.click();
+
+                window.URL.revokeObjectURL(url); // release object to free up memory
             });
         }
     </script>
