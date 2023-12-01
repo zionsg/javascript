@@ -19,7 +19,7 @@
       code {
         background-color: #f9f2f4;
         color: #c7254e;
-        padding: 2px;
+        padding: 0 2px;
       }
 
       button,
@@ -65,6 +65,10 @@
         </ul>
       </li>
       <li><code>Message</code> key will be extracted from JSON on each line.</li>
+      <li>
+        After downloading the results as a NDJSON file, <a target="_blank" rel="noopener" href="https://jqlang.github.io/jq/">jq</a> can be used to extract specific fields into a CSV file:
+        <code>(echo "bounceType,email,error" && cat tmp.ndjson | jq --raw-output '[.bounce.bounceType, .mail.destination[0], .bounce.bouncedRecipients[0].diagnosticCode] | @csv') &gt; tmp.csv</code>
+      </li>
     </ul>
 
     <b>INPUT TEXT:</b><br>
