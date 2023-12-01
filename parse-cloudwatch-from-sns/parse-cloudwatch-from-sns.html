@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parse AWS CloudWatch logs from AWS SNS</title>
+
+    <style>
+      html,
+      body {
+        font-family: monospace;
+        font-size: 16px;
+      }
+
+      body {
+        padding: 0 10px;
+      }
+
+      code {
+        background-color: #f9f2f4;
+        color: #c7254e;
+        padding: 2px;
+      }
+
+      button,
+      textarea {
+        font-family: monospace;
+        font-size: 1em;
+      }
+
+      textarea {
+        height: 30vh;
+        width: 90vw;
+      }
+
+      a {
+        color: #0000ff;
+      }
+      a:hover {
+        color: #ff00ff;
+      }
+
+      #result-clipboard {
+        /* to facilitate copying to clipboard - cannot set display:none or visibility:hidden else cannot work */
+        height: 1px;
+        opacity: 0;
+        width: 1px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h3>Parse AWS CloudWatch logs from AWS SNS</h3>
+
+    <ul>
+      <li>
+        AWS CloudWatch > Log groups > <code>some-log-group</code> > Search log group
+        <ul>
+          <li>Filter events as needed</li>
+          <li>
+            Keep scrolling down so that all the filtered events are shown,
+            as the Export action only exports displayed results.
+          </li>
+          <li>Display > View in plain text</li>
+          <li>Actions > Export displayed results > Copy search results (ASCII)</li>
+          <li>
+            Paste in textbox below, keeping only lines with logs, each looking like this:
+            <code>
+              | [INFO] 2023-12-01T00:00:17.004Z 4a65c843-afe6-449c-954f-57ab77bf1465 some custom text {"Records":[{"EventSource":"aws:sns","Sns":{"Type":"Notification","Message":"{\"eventType\":\"Bounce\"}\n","Timestamp":"2023-12-01T00:00:16.932Z"}}]} |
+            </code>
+          </li>
+        </ul>
+      </li>
+      <li><code>Message</code> key will be extracted from JSON on each line.</li>
+    </ul>
+
+    <b>INPUT TEXT:</b><br>
+    <textarea id="text" rows="10" cols="100"></textarea>
+    <br><br>
+    <button id="convert" onclick="extract();">Extract messages</button><br><br>
+
+    <b>RESULTS (click <a id="copy-to-clipboard-link" href="#">here</a> to copy to clipboard):</b>
+    <textarea id="result-clipboard"></textarea>
+    <pre id="result"></pre>
+    <p>&nbsp;</p>
+
+    <script>
+        let textElement = document.getElementById('text');
+        let copyToClipboardLink = document.getElementById('copy-to-clipboard-link');
+        let resultClipboard = document.getElementById('result-clipboard');
+        let resultElement = document.getElementById('result');
+
+        /**
+         * Onload listener to load sample text
+         */
+        window.addEventListener('load', function (event) {
+            let tab = String.fromCharCode(9);
+
+            // Additional escaping done for escaped quotes and escaped linefeed for default value
+            document.getElementById('text').value = `
+                | [INFO] 2023-12-01T00:00:17.004Z 4a65c843-afe6-449c-954f-57ab77bf1465 log -- Event: {"Records":[{"EventSource":"aws:sns","EventVersion":"1.0","EventSubscriptionArn":"arn:aws:sns:ap-southeast-1:123:ses-events-sns-topic:456","Sns":{"Type":"Notification","MessageId":"789","TopicArn":"arn:aws:sns:ap-southeast-1:123:ses-events-sns-topic","Subject":"Amazon SES Email Event Notification","Message":"{\\"eventType\\":\\"Bounce\\",\\"bounce\\":{\\"bounceType\\":\\"Permanent\\",\\"bounceSubType\\":\\"General\\",\\"bouncedRecipients\\":[{\\"emailAddress\\":\\"test@example.com\\",\\"action\\":\\"failed\\",\\"status\\":\\"5.2.1\\",\\"diagnosticCode\\":\\"smtp; 550-5.2.1 The email account that you tried to reach is inactive.\\"}],\\"timestamp\\":\\"2023-12-01T00:00:27.449Z\\"}}\\n","Timestamp":"2023-12-01T00:00:27.509Z"}}]} |
+                | [INFO] 2023-12-01T00:00:34.880Z c303e4f8-3ca3-43eb-9d8f-bfd493a76ab1 some custom text {"Records":[{"EventSource":"aws:sns","EventVersion":"1.0","EventSubscriptionArn":"arn:aws:sns:ap-southeast-1:123:ses-events-sns-topic:456","Sns":{"Type":"Notification","MessageId":"789","TopicArn":"arn:aws:sns:ap-southeast-1:123:log-ses-events-sns-topic","Subject":"Amazon SES Email Event Notification","Message":"{\\"eventType\\":\\"Bounce\\",\\"bounce\\":{\\"bounceType\\":\\"Transient\\",\\"bounceSubType\\":\\"General\\",\\"bouncedRecipients\\":[{\\"emailAddress\\":\\"demo@example.com\\",\\"action\\":\\"failed\\",\\"status\\":\\"5.2.2\\",\\"diagnosticCode\\":\\"smtp;554 5.2.2 mailbox full;\\"}],\\"timestamp\\":\\"2023-12-01T00:00:34.701Z\\"}}\\n","Timestamp":"2023-12-01T00:00:34.812Z"}}]}   |
+            `.trim();
+
+            extract();
+            onCopyToClipboard();
+            textElement.focus();
+        });
+
+        /**
+         * Parse input text
+         *
+         * @returns {void}
+         */
+        function extract() {
+            let text = textElement.value.trim();
+            let lines = text.split('\n');
+
+            let result = '';
+            lines.forEach((line, lineIndex) => {
+                line = line.trim();
+                if (!line) {
+                    return;
+                }
+
+                let jsonBeginIndex = line.indexOf('{');
+                let jsonCloseIndex = line.lastIndexOf('}');
+                if (-1 === jsonBeginIndex || -1 === jsonCloseIndex || jsonCloseIndex <= jsonBeginIndex) {
+                    return;
+                }
+
+                let json = null;
+                let jsonStr = line.substring(jsonBeginIndex, jsonCloseIndex + 1);
+                try {
+                    json = JSON.parse(jsonStr);
+                } catch (err) {
+                    console.error(err, jsonStr);
+                    json = null;
+                }
+                if (!json) {
+                    return;
+                }
+
+                let message = (json?.Records[0]?.Sns?.Message || '').trim();
+                result += message + '\n';
+            });
+
+            // Output result to page
+            resultElement.innerHTML = result;
+
+            // Store results in element for copying to clipboard
+            resultClipboard.value = result;
+        }
+
+        /**
+         * Copy results to clipboard when link is clicked
+         *
+         * @returns {void}
+         */
+        function onCopyToClipboard() {
+            copyToClipboardLink.addEventListener('click', (event) => {
+                resultClipboard.select();
+                resultClipboard.setSelectionRange(0, 99999); // for mobile devices
+                document.execCommand('copy');
+                textElement.focus(); // set focus back to input textarea
+            });
+        }
+    </script>
+  </body>
+</html>
