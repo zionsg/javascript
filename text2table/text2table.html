@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
   <head>
@@ -312,7 +313,7 @@
                 // "Available fields" section in https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html
                 if (
                     !addTimestampLocalColumn
-                    && 0 === lineIndex
+                    && !isHeaderRowHandled // i.e. this is the header row
                     && columns.map((val) => val.toLowerCase()).includes('timestamp')
                 ) {
                     addTimestampLocalColumn = true;
