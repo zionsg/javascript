@@ -1,8 +1,5 @@
 <!DOCTYPE html>
 <html>
-  <!--
-  @link https://github.com/zionsg/javascript/tree/master/text2table
-  -->
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -75,6 +72,9 @@
         the input and tick "Input text is HTML <code>&lt;table&gt;</code>".
       </li>
       <li>
+        If there is a <code>timestamp</code> column, a <code>timestamp-local</code> column will be added.
+      </li>
+      <li>
         AWS CloudFront
         <a target="_blank" rel="noopener"
           href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/AccessLogs.html#BasicDistributionFileFormat">
@@ -101,7 +101,7 @@
     <input id="is-html-table" type="checkbox" /> Input text is HTML <code>&lt;table&gt;</code><br>
     <input id="is-aws-cloudfront-log-format" type="checkbox" />
         Input text uses format of AWS CloudFront logs or AWS VPC flow logs
-        (sometimes single-space delimited, <code>timestamp-local</code> column will be added)<br>
+        (single-space delimited, <code>timestamp-local</code> column will be added)<br>
     <input id="has-footer-row" type="checkbox" /> Last line is footer row<br>
     Insert divider every X rows after header row: <input id="rows-per-section" type="numeric" value="0" /><br><br>
     <button id="convert" onclick="convert();">Convert</button><br><br>
@@ -269,6 +269,7 @@
             let utcDateColumnIndex = -1;
             let utcTimeColumnIndex = -1;
             let utcStartColumnIndex = -1;
+            let utcTimestampColumnIndex = -1;
             let timestampLocal = '';
             let columnName = '';
             lines.forEach(function (line, lineIndex) {
@@ -309,10 +310,21 @@
                 // https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/AccessLogs.html
                 // AWS VPC flow logs have a "start" column which is UNIX timestamp in seconds in UTC timezone as per
                 // "Available fields" section in https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html
+                if (
+                    !addTimestampLocalColumn
+                    && 0 === lineIndex
+                    && columns.map((val) => val.toLowerCase()).includes('timestamp')
+                ) {
+                    addTimestampLocalColumn = true;
+                }
                 if (addTimestampLocalColumn) {
                     if (!isHeaderRowHandled) { // means current line is the header row
                         for (let i = 0; i < columns.length; i++) { // get column index for date/time columns
-                            if ((utcDateColumnIndex > -1 && utcTimeColumnIndex > -1) || (utcStartColumnIndex > -1)) {
+                            if (
+                                (utcDateColumnIndex > -1 && utcTimeColumnIndex > -1)
+                                || (utcStartColumnIndex > -1)
+                                || (utcTimestampColumnIndex > -1)
+                            ) {
                                 break;
                             }
 
@@ -326,6 +338,9 @@
                             if ('start' === columnName) {
                                 utcStartColumnIndex = i;
                             }
+                            if ('timestamp' === columnName) {
+                                utcTimestampColumnIndex = i;
+                            }
                         }
 
                         columns.unshift('timestamp-local');
@@ -336,6 +351,15 @@
                             );
                         } else if (utcStartColumnIndex > -1) {
                             timestampLocal = dateToIsoLocal(parseInt(columns[utcStartColumnIndex]));
+                        } else if (utcTimestampColumnIndex > -1) {
+                            // Cater for irregular date format for "Date added" column in AWS SES Suppression List,
+                            // e.g. "December 1, 2023 at 08:04 (UTC+08:00)"
+                            timestampLocal = dateToIsoLocal(new Date(
+                                columns[utcTimestampColumnIndex].toString()
+                                    .replaceAll('at', '')
+                                    .replaceAll('UTC', '')
+                                    .replace(/[,\(\)]/gi, '')
+                            ));
                         } else {
                             timestampLocal = '';
                         }
