@@ -57,7 +57,7 @@
           <li>Display > View in plain text</li>
           <li>Actions > Export displayed results > Copy search results (ASCII)</li>
           <li>
-            Paste in textbox below, keeping only lines with logs, each looking like this:
+            Paste in textbox below, keeping only lines with logs, each looking like this:<br>
             <code>
               | [INFO] 2023-12-01T00:00:17.004Z 4a65c843-afe6-449c-954f-57ab77bf1465 some custom text {"Records":[{"EventSource":"aws:sns","Sns":{"Type":"Notification","Message":"{\"eventType\":\"Bounce\"}\n","Timestamp":"2023-12-01T00:00:16.932Z"}}]} |
             </code>
@@ -66,7 +66,7 @@
       </li>
       <li><code>Message</code> key will be extracted from JSON on each line.</li>
       <li>
-        After downloading the results as a NDJSON file, <a target="_blank" rel="noopener" href="https://jqlang.github.io/jq/">jq</a> can be used to extract specific fields into a CSV file:
+        After downloading the results as a NDJSON file, <a target="_blank" rel="noopener" href="https://jqlang.github.io/jq/">jq</a> can be used to extract specific fields into a CSV file:<br>
         <code>(echo "bounceType,email,error" && cat tmp.ndjson | jq --raw-output '[.bounce.bounceType, .mail.destination[0], .bounce.bouncedRecipients[0].diagnosticCode] | @csv') &gt; tmp.csv</code>
       </li>
     </ul>
