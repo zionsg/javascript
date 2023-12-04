@@ -47,9 +47,15 @@
 
     <ul>
       <li>
+        This is meant for parsing logs on AWS CloudWatch created by AWS Lambda functions set as
+        targets for messages sent to AWS SNS topics, e.g. by AWS SES. See
+        <a target="_blank" rel="noopener" href="https://docs.aws.amazon.com/lambda/latest/dg/with-sns.html">Using AWS Lambda with Amazon SNS</a>
+        and <a target="_blank" rel="noopener" href="https://docs.aws.amazon.com/ses/latest/dg/event-publishing-retrieving-sns-examples.html">Examples of event data that Amazon SES publishes to Amazon SNS</a> for more info.
+      </li>
+      <li>
         AWS CloudWatch > Log groups > <code>some-log-group</code> > Search log group
         <ul>
-          <li>Filter events as needed</li>
+          <li>Filter events as needed.</li>
           <li>
             Keep scrolling down so that all the filtered events are shown,
             as the Export action only exports displayed results.
