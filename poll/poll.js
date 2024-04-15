@@ -52,7 +52,7 @@ async function poll(
 
         let newAttemptCnt = attempts + 1;
         let newIntervalMs = Math.pow(exponentialBackoffFactor, newAttemptCnt) * intervalMs;
-        if (isNaN(newIntervalMs)) { // exceed max integer
+        if (!Number.isFinite(newIntervalMs)) { // ensure not NaN and not Infinity (e.g. 1024^1024)
             rejectFunction(`Poll interval too large after ${newAttemptCnt} attempts.`);
             return;
         }
