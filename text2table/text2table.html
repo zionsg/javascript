@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Text to Table and CSV</title>
+    <title>Text to Table, CSV and JSON</title>
 
     <style>
       html,
@@ -14,7 +13,7 @@
       }
 
       body {
-        padding: 0 10px;
+        padding: 0 1rem;
       }
 
       code {
@@ -26,12 +25,17 @@
       button,
       textarea {
         font-family: monospace;
-        font-size: 1em;
+        font-size: 1rem;
       }
 
       textarea {
         height: 30vh;
         width: 90vw;
+      }
+
+      pre {
+        background: #eee;
+        padding: 1rem;
       }
 
       a {
@@ -51,7 +55,7 @@
   </head>
 
   <body>
-    <h3>Convert text to ASCII/Markdown table and CSV</h3>
+    <h3>Convert text to ASCII/Markdown table, CSV and JSON</h3>
 
     <ul>
       <li>1st line assumed to be header row.</li>
@@ -116,6 +120,10 @@
     <pre id="result-csv"></pre>
     <p>&nbsp;</p>
 
+    <b>RESULT IN JSON FORMAT (click <a id="download-json-link" href="#">here</a> to download JSON file):</b>
+    <pre id="result-json"></pre>
+    <p>&nbsp;</p>
+
     <script>
         const BLANK_CHAR = ' ';
         const BLANK_PLACEHOLDER = '%BLANK%';
@@ -125,8 +133,10 @@
         let textElement = document.getElementById('text');
         let copyToClipboardLink = document.getElementById('copy-to-clipboard-link');
         let downloadCsvLink = document.getElementById('download-csv-link');
+        let downloadJsonLink = document.getElementById('download-json-link');
         let resultClipboard = document.getElementById('result-clipboard');
         let resultCsv = document.getElementById('result-csv');
+        let resultJson = document.getElementById('result-json');
         let resultTable = document.getElementById('result-table');
 
         /**
@@ -147,6 +157,7 @@
             convert();
             onCopyToClipboard();
             onDownloadCsv();
+            onDownloadJson();
             textElement.focus();
         });
 
@@ -200,9 +211,8 @@
             // Output result to page
             let result = textToTable(text, hasFooterRow, rowsPerSection, isHtmlTable, addTimestampLocalColumn);
             resultTable.innerHTML = result.table;
-            console.log(result.table);
             resultCsv.innerHTML = result.csv;
-            console.log(result.csv);
+            resultJson.innerHTML = JSON.stringify(result.json, null, 2);
 
             // Store results in element for copying to clipboard
             resultClipboard.value = result.table;
@@ -239,6 +249,22 @@
         }
 
         /**
+         * Download results as JSON when link is clicked
+         *
+         * @returns {void}
+         */
+        function onDownloadJson() {
+            downloadJsonLink.addEventListener('click', (event) => {
+                event.preventDefault();
+
+                let element = document.createElement('a');
+                element.setAttribute('href', 'data:text/text;charset=utf-8,' + encodeURI(resultJson.innerHTML));
+                element.setAttribute('download', 'text2table-' + Date.now() + '.json');
+                element.click();
+            });
+        }
+
+        /**
          * Convert text to table
          *
          * @param {string} text
@@ -249,7 +275,12 @@
          * @param {boolean} addTimestampLocalColumn=false - Whether to add a `timestamp-local`
          *     column. Assumes that there are `date` and `time` columns which indicate the UTC
          *     timestamp.
-         * @returns object { table: <result in table format>, csv: <result in CSV format> }
+         * @returns {object} Format:
+         *     {
+         *         table: <result in table format>,
+         *         csv: <result in CSV format>,
+         *         json: <result as JSON array of objects using columns in header row as keys>,
+         *     }
          */
         function textToTable(text, hasFooterRow, rowsPerSection, isHtmlTable = false, addTimestampLocalColumn = false) {
             // |, tab or multiple spaces will be taken as column delimiter
@@ -313,7 +344,7 @@
                 // "Available fields" section in https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html
                 if (
                     !addTimestampLocalColumn
-                    && !isHeaderRowHandled // i.e. this is the header row
+                    && !isHeaderRowHandled
                     && columns.map((val) => val.toLowerCase()).includes('timestamp')
                 ) {
                     addTimestampLocalColumn = true;
@@ -392,19 +423,39 @@
             // Create tabular format
             let rowCnt = rows.length;
             let csvResultRows = [];
+            let jsonResultItems = [];
+            let headerRow = [];
             rows.forEach(function (row, rowIndex) {
                 let csvRow = [];
+                let jsonRow = {};
 
                 // Go thru each row and pad columns to align them
                 row.forEach(function (col, colIndex) {
+                    // Store values before they are padded
+                    if (0 === rowIndex) { // header row
+                        headerRow[colIndex] = row[colIndex]
+                    } else {
+                        jsonRow[headerRow[colIndex]] = row[colIndex];
+                    }
+
                     row[colIndex] = row[colIndex].padEnd(maxColumnLengths[colIndex] || 0, ' ');
                     csvRow.push('"' + col.trim().replace(/"/g, '""') + '"');
                 });
                 for (let i = row.length; i < columnCount; i++) { // fill up missing columns if any
                     row[i] = ' '.padEnd(maxColumnLengths[i] || 0, ' ');
                     csvRow.push('""');
+
+                    if (0 === rowIndex) { // header row
+                        headerRow[i] = '';
+                    } else {
+                        jsonRow[headerRow[i]] = '';
+                    }
                 }
+
                 csvResultRows.push(csvRow.join(','));
+                if (rowIndex > 0) {
+                    jsonResultItems.push(jsonRow);
+                }
 
                 // Append row output to result
                 resultRows.push('| ' + row.join(' | ') + ' |');
@@ -424,7 +475,8 @@
 
             return {
                 table: resultRows.join("\n"),
-                csv: csvResultRows.join("\n")
+                csv: csvResultRows.join("\n"),
+                json: jsonResultItems,
             };
         }
 
