@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate SQL to Modify Comma-delimited List</title>
+
+    <style>
+      html,
+      body {
+        font-family: monospace;
+        font-size: 16px;
+      }
+
+      body {
+        padding: 0 1rem;
+      }
+
+      pre {
+        background: #eee;
+        padding: 1rem;
+      }
+
+      code {
+        background-color: #f9f2f4;
+        color: #c7254e;
+        padding: 2px;
+      }
+
+      button,
+      input,
+      textarea {
+        font-family: monospace;
+        font-size: 1rem;
+      }
+
+      label {
+        display: block;
+        font-weight: bold;
+      }
+
+      textarea {
+        height: 40vh;
+        width: 80vw;
+      }
+
+      a {
+        color: #0000ff;
+      }
+      a:hover {
+        color: #ff00ff;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h3>Generate SQL to Modify Comma-delimited List</h3>
+
+    <ul>
+      <li>
+        Use the <a target="_blank" href="https://treoz.net/tools/Text_To_Table-CSV-JSON.html">Text To Table-CSV-JSON</a>
+        tool to convert the tabular output of a SELECT SQL query into JSON for pasting into the input textarea below.
+        <ul>
+          <li>
+            Sample SQL query to find records containing a value in a comma-delimited list using exact match
+            (e.g. match 42 and not 142 or 423):<br>
+            <code>
+              SELECT id, name, project_ids FROM some_table WHERE CONCAT(',', project_ids, ',') LIKE '%,42,%';
+            </code>
+          </li>
+        </ul>
+      </li>
+      <li>
+        For the generated SQL, it is assumed that any columns named <code>id</code>, ending with <code>_id</code>
+        or ending with <code>_at</code> are integers, with all other columns treated as strings.
+      </li>
+    </ul>
+
+    <form>
+      <p>
+        <label>Input JSON array of record rows:</label>
+        <textarea name="input_text" rows="10" cols="100"></textarea>
+      </p>
+
+      <p>
+        <label>Name of table in database:</label>
+        <input name="table_name" type="text" size="50">
+      </p>
+
+      <p>
+        <label>Name of column containing comma-delimited list to be modified:</label>
+        <input name="list_column" type="text" size="50">
+      </p>
+
+      <p>
+        <label>Comma-delimited list of values to add to column</label>
+        <input name="values_to_add" type="text" size="100">
+      </p>
+
+      <p>
+        <label>Comma-delimited list of values to remove from column</label>
+        <input name="values_to_remove" type="text" size="100">
+      </p>
+
+      <p>
+        <input name="sort_list_as_integers" type="checkbox"> Sort comma-delimited list as list of integers
+      </p>
+
+      <p>
+        <input type="submit" value="Generate SQL with updated JSON">
+      </p>
+    </form>
+    <p>&nbsp;</p>
+
+    <p>
+      <b>RESULT:</b>
+      <pre name="result"></pre>
+    </p>
+
+    <script>
+        (function () {
+            let formElement = document.querySelector('form');
+            let inputTextField = formElement.querySelector('[name="input_text"]');
+            let tableNameField = formElement.querySelector('[name="table_name"]');
+            let listColumnField = formElement.querySelector('[name="list_column"]');
+            let valuesToAddField = formElement.querySelector('[name="values_to_add"]');
+            let valuesToRemoveField = formElement.querySelector('[name="values_to_remove"]');
+            let sortListAsIntegersCheckbox = formElement.querySelector('[name="sort_list_as_integers"]');
+            let submitButton = formElement.querySelector('[type="submit"]');
+            let resultElement = document.querySelector('[name="result"]');
+
+            window.addEventListener('DOMContentLoaded', () => {
+                populateSampleValues();
+                onFormSubmit();
+
+                submitButton.click();
+            });
+
+            function commaDelimitedToArray(text) {
+                if (!text) { // note that ''.split() results in [''] not [] hence this condition
+                    return [];
+                }
+
+                return (text.toString()).split(',').map((val) => val.trim());
+            }
+
+            function filterUnique(items) {
+                return [...new Set(items)];
+            }
+
+            function populateSampleValues() {
+                inputTextField.value = JSON.stringify(
+                    [
+                        {
+                            "id": "101",
+                            "name": "Alpha",
+                            "project_ids": "1,2,3"
+                        },
+                        {
+                            "id": "102",
+                            "name": "Beta",
+                            "project_ids": "3,4,5"
+                        },
+                        {
+                            "id": "103",
+                            "name": "Gamma",
+                            "project_ids": "7,6,5"
+                        }
+                    ],
+                    null,
+                    2
+                );
+
+                tableNameField.value = 'some_table';
+                listColumnField.value = 'project_ids';
+                valuesToAddField.value = '8,7';
+                valuesToRemoveField.value = '2,4,6';
+            }
+
+            function onFormSubmit() {
+                submitButton.addEventListener('click', (event) => {
+                    event.preventDefault();
+
+                    let inputRows = [];
+                    try {
+                        inputRows = JSON.parse(inputTextField.value);
+                    } catch (err) {
+                        return updateError(err);
+                    }
+
+                    if (!inputRows || !Array.isArray(inputRows) || !inputRows.length) {
+                        return updateError('No input rows to work with.');
+                    }
+
+                    let listColumn = listColumnField.value.trim();
+                    if (!listColumn || undefined === inputRows?.[0]?.[listColumn]) {
+                        return updateError('Invalid list column.')
+                    }
+
+                    let valuesToAdd = commaDelimitedToArray(valuesToAddField.value);
+                    let valuesToRemove = commaDelimitedToArray(valuesToRemoveField.value);
+                    if (!valuesToAdd.length && !valuesToRemove.length) {
+                        return updateError('No values to add or remove.');
+                    }
+
+                    let sortListAsIntegers = sortListAsIntegersCheckbox.checked;
+                    let resultRows = JSON.parse(JSON.stringify(inputRows)); // make deep copy to avoid modifying input
+                    inputRows.forEach((row, rowIndex) => {
+                        let newList = commaDelimitedToArray(row[listColumn]);
+
+                        newList.push(...valuesToAdd);
+                        newList = newList.filter((val) => !valuesToRemove.includes(val));
+                        newList = filterUnique(newList);
+                        if (sortListAsIntegers) {
+                            newList = newList.map((val) => parseInt(val));
+                            newList.sort();
+                        }
+
+                        resultRows[rowIndex][listColumn] = newList.join(',');
+                    });
+
+                    return updateResult(inputRows, resultRows);
+                });
+            }
+
+            function updateError(error) {
+                resultElement.innerHTML = error.toString();
+                console.error(error);
+
+                return false;
+            }
+
+            function updateResult(inputRows, resultRows) {
+                let queries = [];
+
+                let table = tableNameField.value.trim();
+                let listColumn = listColumnField.value.trim();
+
+                inputRows.forEach((row, rowIndex) => {
+                    let query = `UPDATE ${table} SET ${listColumn} = '${resultRows[rowIndex][listColumn]}' WHERE `;
+
+                    let cols = [];
+                    Object.keys(row).forEach((col) => {
+                        if ('id' === col || col.endsWith('_id') || col.endsWith('_at')) {
+                            cols.push(`${col} = ` + parseInt(row[col]))
+                        } else {
+                            cols.push(`${col} = '${row[col]}'`);
+                        }
+                    });
+
+                    query += cols.join(' AND ') + ';';
+                    queries.push(query);
+                });
+
+                resultElement.innerHTML = queries.join('\n') + '\n\n'
+                    + JSON.stringify(resultRows, null, 2) + '\n\n';
+
+                return true;
+            }
+        })();
+    </script>
+  </body>
+</html>
