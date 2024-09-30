@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Encrypt Environment Variables</title>
+
+    <style>
+      html,
+      body {
+        font-family: monospace;
+        font-size: 16px;
+      }
+
+      body {
+        padding: 0 1rem;
+      }
+
+      pre {
+        background: #eee;
+        padding: 1rem;
+      }
+
+      code {
+        background-color: #f9f2f4;
+        color: #c7254e;
+        padding: 2px;
+      }
+
+      button,
+      input,
+      textarea {
+        font-family: monospace;
+        font-size: 1rem;
+      }
+
+      label {
+        display: block;
+        font-weight: bold;
+      }
+
+      textarea {
+        height: 40vh;
+        width: 80vw;
+      }
+
+      a {
+        color: #0000ff;
+      }
+      a:hover {
+        color: #ff00ff;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h3>Encrypt Environment Variables</h3>
+
+    <ul>
+      <li>
+        This tool does not save or send any data anywhere. If you want to play
+        it safe, copy the source code of this webpage and run it offline locally
+        on your computer.
+      </li>
+      <li>
+        The format of the input text is similar to the <code>.env</code> files
+        used in software projects, with each line being a key-value pair
+        denoting an environment variable (env var), a comment or a blank line.
+        Note that for simplicity, env vars do not span multiple lines.
+      </li>
+      <li>
+        The purpose of this tool is to encrypt the contents of a
+        <code>.env</code> file so that it can be committed to a source code
+        repository. Only the values of the env vars are encrypted, not the keys
+        and comments, so that changes to env vars can be tracked easily via
+        version control such as Git. This tool can be used for decryption as
+        well.
+        <ul>
+          <li>
+            The cryptic value for each env var after encryption contains 2 parts
+            separated by a <code>.</code> character:
+            <code>
+              &lt;initialization vector used for encryption, encoded as Base64 string&gt;.&lt;value for env var, encrypted and then encoded as Base64 string&gt;
+            </code>
+          </li>
+        </ul>
+      </li>
+      <li>
+        All values are trimmed before processing, i.e. beginning/trailing
+        whitespace characters will be removed before encryption/decryption.
+      </li>
+    </ul>
+
+    <form>
+      <p>
+        <label>Passphrase used for encryption/decryption:</label>
+        <input name="password" size="100">
+      </p>
+      <p>
+        <label>Input text:</label>
+        <textarea name="input_text" rows="10" cols="100"></textarea>
+      </p>
+
+      <p>
+        <button name="encrypt">Encrypt plaintext env vars</button><br><br>
+        <button name="decrypt">Decrypt ciphertext env vars</button>
+      </p>
+    </form>
+    <p>&nbsp;</p>
+
+    <p>
+      <b>RESULT:</b>
+      <pre name="result"></pre>
+    </p>
+
+    <script>
+        (function () {
+            // See https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API
+            // and https://medium.com/slalom-build/the-web-cryptography-api-in-action-89b2f68c602c
+            const webCrypto = window.crypto?.subtle || window.crypto?.webkitSubtle;
+
+            let formElement = document.querySelector('form');
+            let passwordField = formElement.querySelector('[name="password"]');
+            let inputTextField = formElement.querySelector('[name="input_text"]');
+            let encryptButton = formElement.querySelector('[name="encrypt"]');
+            let decryptButton = formElement.querySelector('[name="decrypt"]');
+            let resultElement = document.querySelector('[name="result"]');
+
+            let encoder = new TextEncoder('utf-8');
+            let decoder = new TextDecoder('utf-8');
+
+            window.addEventListener('DOMContentLoaded', async () => {
+                // Stop if Web Crypto or SubtleCrypto is not supported
+                if (!webCrypto) {
+                    alert('Web Crypto is not supported on this browser.');
+                    return;
+                }
+
+                populateSampleValues();
+                onEncryptButtonClick();
+                onDecryptButtonClick();
+
+                encryptButton.click();
+            });
+
+            /**
+             * @param {(ArrayBuffer|Uint8Array)} arrayBuffer
+             * @returns {string} Base64 encoded string.
+             */
+            function arrayBufferToBase64String(arrayBuffer) {
+                return window.btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+            }
+
+            /**
+             * @param {string} base64String
+             * @returns {Uint8Array} Array buffer.
+             */
+            function base64StringToArrayBuffer(base64String) {
+                return Uint8Array.from(
+                    window.atob(base64String),
+                    (c) => c.charCodeAt(0)
+                );
+            }
+
+            /**
+             * @param {AesCbcParams} algorithm - Algorithm with name and IV (initialization vector).
+             * @param {CryptoKey} key
+             * @param {string} ciphertext - Ciphertext encoded in Base64.
+             * @returns {Promise<string>} Decrypted value in plaintext.
+             */
+            async function decryptCiphertext(algorithm, key, ciphertext) {
+                // Decode Base64 string and convert to Uint8Array
+                let decodedMessage = base64StringToArrayBuffer(ciphertext);
+                let arrayBuffer = await webCrypto.decrypt(algorithm, key, decodedMessage); // Uint8Array
+
+                // Convert from Uint8Array to string
+                let result = String.fromCharCode(...new Uint8Array(arrayBuffer));
+
+                return result;
+            }
+
+            /**
+             * @param {AesCbcParams} algorithm - Algorithm with name and IV (initialization vector).
+             * @param {CryptoKey} key
+             * @param {string} value - Plaintext value to be encrypted.
+             * @returns {Promise<string>} Encrypted ciphertext encoded in Base64.
+             */
+            async function encryptValue(algorithm, key, value) {
+                let encodedMessage = encoder.encode(value); // convert string to Uint8Array
+                let arrayBuffer = await webCrypto.encrypt(algorithm, key, encodedMessage); // Uint8Array
+                let result = arrayBufferToBase64String(arrayBuffer);
+
+                return result;
+            }
+
+            /**
+             * Generate key and IV
+             *
+             * @link https://developer.mozilla.org/en-US/docs/Web/API/CryptoKey
+             * @param {string} password
+             * @returns {Promise<object>} Format:
+             *     {
+             *         algorithm: { // as per https://developer.mozilla.org/en-US/docs/Web/API/AesCbcParams
+             *             name: 'AES-CBC',
+             *             iv: <initialization vector as Uint8Array>
+             *         }
+             *         key: <CryptoKey>,
+             *         ivAsBase64String: <initialization vector encoded as Base64 string>
+             *     }
+             */
+            async function generateKeyIv(password) {
+                // Using a user-specified passphrase for encryption, hence not using generateKey()
+                // See https://blog.engelke.com/2015/02/14/deriving-keys-from-passwords-with-webcrypto/
+                // and https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/deriveKey
+                let baseKey = await webCrypto.importKey( // Create a PBKDF2 base key containing the password
+                    'raw',
+                    encoder.encode(password), // convert string to ArrayBuffer/Uint8Array
+                    { name: 'PBKDF2' },
+                    false, // do not make it extractable
+                    ['deriveKey']
+                );
+                let key = await webCrypto.deriveKey(
+                    {
+                        'name': 'PBKDF2',
+                        'salt': encoder.encode(''), // no salt
+                        'iterations': 1000,
+                        'hash': 'SHA-256',
+                    },
+                    baseKey,
+                    {
+                        'name': 'AES-CBC',
+                        'length': 256,
+                    },
+                    false, // do not make it extractable
+                    ['encrypt', 'decrypt']
+                );
+
+                // See https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues
+                let iv = window.crypto.getRandomValues(new Uint8Array(16));
+
+                return {
+                    algorithm: {
+                        name: 'AES-CBC',
+                        iv: iv,
+                    },
+                    key: key,
+                    ivAsBase64String: arrayBufferToBase64String(iv),
+                }
+            }
+
+            /**
+             * @returns {void}
+             */
+            function onDecryptButtonClick() {
+                decryptButton.addEventListener('click', async (event) => {
+                    event.preventDefault();
+                    if (!isFormValid()) {
+                        return;
+                    }
+
+                    let password = passwordField.value.trim();
+                    let { algorithm, key, ivAsBase64String } = await generateKeyIv(password);
+                    let lines = inputTextField.value.trim().split('\n');
+
+                    let result = '';
+                    let delimiterIndex = '';
+                    let envVarName = '';
+                    let IvWithCiphertext = '';
+                    let parts = [];
+                    let envVarCiphertext = '';
+                    let decryptedValue = '';
+                    for (let line of lines) {
+                        line = line.trim();
+                        delimiterIndex = line.indexOf('=');
+                        if (!line.length || '#' === line.substring(0, 1) || -1 === delimiterIndex) {
+                            result += line + '\n';
+                            continue;
+                        }
+
+                        // Value may contain "=" hence manual splitting
+                        envVarName = line.substring(0, delimiterIndex);
+                        IvWithCiphertext = line.substring(delimiterIndex + 1);
+                        parts = IvWithCiphertext.split('.'); // use back same IV that was used for encryption
+                        algorithm.iv = base64StringToArrayBuffer(parts[0]);
+                        envVarCiphertext = parts[1];
+
+                        try {
+                            decryptedValue = await decryptCiphertext(algorithm, key, envVarCiphertext);
+                        } catch (err) {
+                            console.error(`Error decrypting env var "${envVarName}".`, err);
+                            return updateResult(`Could not decrypt value for env var "${envVarName}".`);
+                        }
+
+                        result += envVarName + '=' + decryptedValue + '\n';
+                    }
+
+                    return updateResult(result.trim()); // remove additional newline added by encryption
+                });
+            }
+
+            /**
+             * @returns {void}
+             */
+            function onEncryptButtonClick() {
+                encryptButton.addEventListener('click', async (event) => {
+                    event.preventDefault();
+                    if (!isFormValid()) {
+                        return;
+                    }
+
+                    let password = passwordField.value.trim();
+                    let { algorithm, key, ivAsBase64String } = await generateKeyIv(password);
+                    let lines = inputTextField.value.trim().split('\n');
+
+                    let result = '';
+                    let delimiterIndex = '';
+                    let envVarName = '';
+                    let envVarValue = '';
+                    let encryptedValue = '';
+                    for (let line of lines) {
+                        line = line.trim();
+                        delimiterIndex = line.indexOf('=');
+                        if (!line.length || '#' === line.substring(0, 1) || -1 === delimiterIndex) {
+                            result += line + '\n';
+                            continue;
+                        }
+
+                        // Value may contain "=" hence manual splitting
+                        envVarName = line.substring(0, delimiterIndex);
+                        envVarValue = line.substring(delimiterIndex + 1);
+
+                        try {
+                            encryptedValue = await encryptValue(algorithm, key, envVarValue);
+                        } catch (err) {
+                            console.error(`Error encrypting env var "${envVarName}".`, err);
+                            return updateResult(`Could not encrypt value for env var "${envVarName}".`);
+                        }
+
+                        // Must include IV as it will be used for decryption
+                        result += envVarName + '=' + ivAsBase64String + '.' + encryptedValue + '\n';
+                    }
+
+                    return updateResult(result.trim()); // remove additional newline added by encryption
+                });
+            }
+
+            function populateSampleValues() {
+                passwordField.value = 'The quick brown fox jumps over the lazy old dog.';
+
+                inputTextField.value = `
+##
+# Environment variables
+##
+
+# Deployment environment: production, staging, feature, testing, local
+MYAPP_ENV=production
+
+# Application backend - internal cron job scoped to current application instance only
+MYAPP_CRON_SCHEDULE=0 * * * *
+
+# Root certificate for Certificate Authority (CA)
+# - This cannot be stored in the Docker image as it depends on which cloud provider the application is hosted on
+# - The contents need to be encoded as Base64 to eliminate issues with multi-line content and must be enclosed in
+#   double quotes. Max length of value for an env var is 131072 (see https://askubuntu.com/a/1385554 for more info).
+MYAPP_DB_SSL_CA="LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUQ5RENDQXR5Z0F3SUJBZ0lCUWpBTkJna3Foa2lHOXcwQkFRVUZBRENCaWpFTE1Ba0dBMVVFQmhNQ1ZWTXgKRXpBUkJnTlZCQWdNQ2xkaGMyaHBibWQwYjI0eEVEQU9CZ05WQkFjTUIxTmxZWFIwYkdVeElqQWdCZ05WQkFvTQpHVUZ0WVhwdmJpQlhaV0lnVTJWeWRtbGpaWE1zSUVsdVl5NHhFekFSQmdOVkJBc01Da0Z0WVhwdmJpQlNSRk14Ckd6QVpCZ05WQkFNTUVrRnRZWHB2YmlCU1JGTWdVbTl2ZENCRFFUQWVGdzB4TlRBeU1EVXdPVEV4TXpGYUZ3MHkKTURBek1EVXdPVEV4TXpGYU1JR0tNUXN3Q1FZRFZRUUdFd0pWVXpFVE1CRUdBMVVFQ0F3S1YyRnphR2x1WjNSdgpiakVRTUE0R0ExVUVCd3dIVTJWaGRIUnNaVEVpTUNBR0ExVUVDZ3daUVcxaGVtOXVJRmRsWWlCVFpYSjJhV05sCmN5d2dTVzVqTGpFVE1CRUdBMVVFQ3d3S1FXMWhlbTl1SUZKRVV6RWJNQmtHQTFVRUF3d1NRVzFoZW05dUlGSkUKVXlCU2IyOTBJRU5CTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUF1RDhuclo4Vgp1K1ZBOHlWbFVpcENaSUtQVERjT0lMWXBVZThUY3QwWWVRUXIwdXlsMDE4U3RkQnNhM0NqQmd2d3BEUnExSGdGCkppMk4zKzM5K3NoQ05zcFFlRTZhWVUrQkhYaEtoSUlTdHQzcjdnbC80TnFZaURETVdLSHhIcTBuc0dERmZBcmYKQU9jalpkSmFnT01xYjNmRjQ2ZmxjOGsyRTdUSFRtOVN6NEw3UlkxV2RBQk11dXJwSUNMRkUzb0hjR2RhcE9iOQpUNTNwUVIreHBIVzlhdGtjZjNwZjdnYk8wcmxLVlNJb1VlbkJsWmlwVWxwMVZabC9PRC9FK1R0UmhERE5kSTJKClAvRFNNTTNhRXNxNlpRa2Ziei9JbG1sK0x4M3RKWVhVRG1wK1pqek1QTGsvKzNiZVQ4RWhyd3RjRzNWUHB2d3AKQklPcXNxVlZUdncvQ3dJREFRQUJvMk13WVRBT0JnTlZIUThCQWY4RUJBTUNBUVl3RHdZRFZSMFRBUUgvQkFVdwpBd0VCL3pBZEJnTlZIUTRFRmdRVVRnTHVyRDcyRmNoTTdTejFCY0dQbklRSVNZTXdId1lEVlIwakJCZ3dGb0FVClRnTHVyRDcyRmNoTTdTejFCY0dQbklRSVNZTXdEUVlKS29aSWh2Y05BUUVGQlFBRGdnRUJBSFpjZ0lpbzhwQW0KTWpIRDVjbDZ3S2pYeFNjWEt0WHlnV0gyQm9ETVlCSkY5eWZ5S08yakVGeFlLYkhlUHBuWEIxUjA0ekpTV0F3NQoyRVV1REkxcFNCaDlCQTgyLzVQa3VObE5lU1RCM2RYREQyUEVQZHpWV2JTS3ZVQjhaZG9vVisydm5nTDBabTRyCjQ3UVB5ZDE4eVBIclJJYnRCdEhSLzZDd0tldkxaMzk0emdFeHFobmVrWUtJcXFFWDQxeHNVVjBHbTZ4NHZwamYKMnU2Ty8rWUUyVStxeXl4SEU1V2Q1b3FkZTBvbzlVVXBGRVRKUFZiNlEyY0VlUWliOFBCQXlpMGk2S25GK2tJVgpBOWRZN0lIU3VidENLL2k4d3hNVnFmZDVHdGJBOG1tcGVKRnduRHZtOXJCRXNIeWJsMDhxbGF4OXN5RXdzVVlyCi80ME5hd1pmVFVVPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg=="
+
+# APIs
+MYAPP_BASEURL=http://localhost:10000
+                `.trim();
+            }
+
+            /**
+             * @param {Error} error
+             * @returns {boolean}
+             */
+            function updateError(error) {
+                resultElement.innerHTML = error.toString();
+                console.error(error);
+
+                return false;
+            }
+
+            /**
+             * @param {string} result
+             * @returns {boolean}
+             */
+            function updateResult(result) {
+                resultElement.innerHTML = result;
+
+                return true;
+            }
+
+            /**
+             * @returns {boolean}
+             */
+            function isFormValid() {
+                let password = passwordField.value.trim();
+                if (!password) {
+                    return updateError('Please provide passphrase.');
+                }
+
+                let text = inputTextField.value.trim();
+                if (!text) {
+                    return updateError('Please provide input text.');
+                }
+
+                return true;
+            }
+        })();
+    </script>
+  </body>
+</html>
