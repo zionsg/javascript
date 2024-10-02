@@ -152,7 +152,8 @@
              * @returns {string}
              */
             self.arrayBufferToString = function (arrayBuffer) {
-                return String.fromCharCode(...new Uint8Array(arrayBuffer));
+                // Do not use String.fromCharCode(...new Uint8Array(arrayBuffer)) as it cannot handle Chinese chars
+                return decoder.decode(new Uint8Array(arrayBuffer));
             };
 
             /**
