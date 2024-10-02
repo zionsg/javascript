@@ -66,77 +66,172 @@
         The format of the input text is similar to the <code>.env</code> files
         used in software projects, with each line being a key-value pair
         denoting an environment variable (env var), a comment or a blank line.
-        Note that for simplicity, env vars do not span multiple lines.
+        Note that for simplicity, it is assumed that no env var will span
+        multiple lines.
       </li>
       <li>
         The purpose of this tool is to encrypt the contents of a
         <code>.env</code> file so that it can be committed to a source code
-        repository. Only the values of the env vars are encrypted, not the keys
-        and comments, so that changes to env vars can be tracked easily via
-        version control such as Git. This tool can be used for decryption as
-        well.
+        repository such as on GitHub. Only the values of the env vars are
+        encrypted, not the keys and comments, so that changes to env vars can
+        be tracked easily via a version control system such as Git. This tool
+        can be used for decryption as well.
         <ul>
           <li>
-            The cryptic value for each env var after encryption contains 2 parts
-            separated by a <code>.</code> character:
-            <code>
-              &lt;initialization vector used for encryption, encoded as Base64 string&gt;.&lt;value for env var, encrypted and then encoded as Base64 string&gt;
-            </code>
+            The output of the encryption is meant to be compatible with the
+            output of the shell command
+            <code>openssl enc -e -pbkdf2 -salt -aes-256-cbc -base64 -A</code>
+            and be able to be decrypted by the shell command
+            <code>openssl enc -d -pbkdf2 -salt -aes-256-cbc -base64 -A</code>.
+          </li>
+          <li>
+            In the shell commands above, the <code>-A</code> argument is needed
+            else encrypted values for long strings may be split into
+            multiple lines.
           </li>
         </ul>
       </li>
       <li>
-        All values are trimmed before processing, i.e. beginning/trailing
-        whitespace characters will be removed before encryption/decryption.
+        Values from input fields will be trimmed before being used in
+        encryption/decryption, i.e. beginning and trailing whitespace
+        characters will be removed.
       </li>
     </ul>
 
     <form>
       <p>
-        <label>Passphrase used for encryption/decryption:</label>
-        <input name="password" size="100">
+        <label>Password used for encryption/decryption:</label>
+        <input name="password" type="password" size="100">
+        <a class="js-toggle-password" href="#">Show</a>
       </p>
+
       <p>
         <label>Input text:</label>
         <textarea name="input_text" rows="10" cols="100"></textarea>
       </p>
 
       <p>
-        <button name="encrypt">Encrypt plaintext env vars</button><br><br>
-        <button name="decrypt">Decrypt ciphertext env vars</button>
+        <button class="js-encrypt">Encrypt plaintext env vars</button><br><br>
+        <button class="js-decrypt">Decrypt ciphertext env vars</button>
       </p>
     </form>
     <p>&nbsp;</p>
 
     <p>
       <b>RESULT:</b>
-      <pre name="result"></pre>
+      <pre class="js-result"></pre>
     </p>
 
     <script>
+        // Utility functions
+        const utils = (function (currentScript) {
+            // Note that the Buffer class in Node.js is a subclass of JavaScript's Uint8Array class
+            // See https://nodejs.org/api/buffer.html for more info
+
+            /** @type {object} Self reference - public properties/methods stored here & returned as public interface. */
+            const self = {}; // methods attached to this are ordered alphabetically
+
+            /** @type {TextEncoder} */
+            let encoder = new TextEncoder('utf-8');
+
+            /** @type {TextDecoder} */
+            let decoder = new TextDecoder('utf-8');
+
+            /**
+             * @public
+             * @param {ArrayBuffer} arrayBuffer
+             * @returns {Uint8Array}
+             */
+            self.arrayBufferToBytes = function (arrayBuffer) {
+                return new Uint8Array(arrayBuffer);
+            };
+
+            /**
+             * @public
+             * @param {ArrayBuffer} arrayBuffer
+             * @returns {string}
+             */
+            self.arrayBufferToString = function (arrayBuffer) {
+                return String.fromCharCode(...new Uint8Array(arrayBuffer));
+            };
+
+            /**
+             * @public
+             * @param {string} base64String - Base64 encoded string.
+             * @returns {Uint8Array}
+             */
+            self.base64StringToBytes = function (base64String) {
+                return Uint8Array.from(
+                    window.atob(base64String),
+                    (c) => c.charCodeAt(0)
+                );
+            };
+
+            /**
+             * @public
+             * @param {Uint8Array} bytes
+             * @returns {string} Base64 encoded string.
+             */
+            self.bytesToBase64String = function (bytes) {
+                return window.btoa(String.fromCharCode(...new Uint8Array(bytes)));
+            };
+
+            /**
+             * @public
+             * @param {Uint8Array} bytes
+             * @returns {string}
+             */
+            self.bytesToString = function (bytes) {
+                return decoder.decode(bytes);
+            }
+
+            /**
+             * @public
+             * @param {string} stringValue
+             * @returns {Uint8Array}
+             */
+            self.stringToBytes = function (stringValue) {
+                return encoder.encode(stringValue);
+            }
+
+            // Return public interface of IIFE
+            return self;
+        })(document.currentScript); // pass in argument to ensure different instance each time
+
         (function () {
-            // See https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API
-            // and https://medium.com/slalom-build/the-web-cryptography-api-in-action-89b2f68c602c
-            const webCrypto = window.crypto?.subtle || window.crypto?.webkitSubtle;
+            // OpenSSL defaults - see https://docs.openssl.org/3.4/man1/openssl-enc/#options
+            // See https://imil.net/blog/posts/2020/openssl-pbkdf2-default-iterations/ on default for iterations
+            const OPENSSL_MAGIC_PREFIX = 'Salted__'; // see https://github.com/openssl/openssl/blob/master/apps/enc.c
+            const OPENSSL_SALT_LENGTH = 8; // see -saltlen option in OpenSSL manual
+            const OPENSSL_KEY_DERIVATION_ALGORITHM = 'PBKDF2';
+            const OPENSSL_KEY_DERIVATION_ITERATIONS = 10000;
+            const OPENSSL_KEY_DERIVATION_DIGEST = 'SHA-256'; // see -md option in OpenSSL manual
+            const OPENSSL_CIPHER_ALGORITHM = 'AES-CBC';
+            const OPENSSL_CIPHER_BITS = 256; // this combined with the cipher algorithm matches aes-256-cbc in OpenSSL
+
+            // Length of key and IV in bytes
+            const KEY_LENGTH = 32; // based on SHA-256, 256 bits = 32 bytes
+            const IV_LENGTH = 16; // based on AES-CBC, 128 bits = 16 bytes
 
             let formElement = document.querySelector('form');
             let passwordField = formElement.querySelector('[name="password"]');
+            let togglePasswordLink = formElement.querySelector('.js-toggle-password');
             let inputTextField = formElement.querySelector('[name="input_text"]');
-            let encryptButton = formElement.querySelector('[name="encrypt"]');
-            let decryptButton = formElement.querySelector('[name="decrypt"]');
-            let resultElement = document.querySelector('[name="result"]');
-
-            let encoder = new TextEncoder('utf-8');
-            let decoder = new TextDecoder('utf-8');
+            let encryptButton = formElement.querySelector('.js-encrypt');
+            let decryptButton = formElement.querySelector('.js-decrypt');
+            let resultElement = document.querySelector('.js-result');
 
             window.addEventListener('DOMContentLoaded', async () => {
                 // Stop if Web Crypto or SubtleCrypto is not supported
-                if (!webCrypto) {
+                // See https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API
+                // and https://medium.com/slalom-build/the-web-cryptography-api-in-action-89b2f68c602c
+                if (!window.crypto?.subtle) {
                     alert('Web Crypto is not supported on this browser.');
                     return;
                 }
 
                 populateSampleValues();
+                onTogglePasswordClick();
                 onEncryptButtonClick();
                 onDecryptButtonClick();
 
@@ -144,60 +239,72 @@
             });
 
             /**
-             * @param {(ArrayBuffer|Uint8Array)} arrayBuffer
-             * @returns {string} Base64 encoded string.
-             */
-            function arrayBufferToBase64String(arrayBuffer) {
-                return window.btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-            }
-
-            /**
-             * @param {string} base64String
-             * @returns {Uint8Array} Array buffer.
-             */
-            function base64StringToArrayBuffer(base64String) {
-                return Uint8Array.from(
-                    window.atob(base64String),
-                    (c) => c.charCodeAt(0)
-                );
-            }
-
-            /**
-             * @param {AesCbcParams} algorithm - Algorithm with name and IV (initialization vector).
-             * @param {CryptoKey} key
+             * Decrypt ciphertext
+             *
+             * The algorithm/key/IV/salt are not passed in as method parameters
+             * as the salt used for the encryption needs to be extracted from
+             * the ciphertext and then used to generate the key/IV.
+             *
+             * @see encrypt() on OpenSSL output for ciphertext.
              * @param {string} ciphertext - Ciphertext encoded in Base64.
+             * @param {string} password - User-specified password that will be
+             *     used to derive the key and IV.
              * @returns {Promise<string>} Decrypted value in plaintext.
              */
-            async function decryptCiphertext(algorithm, key, ciphertext) {
-                // Decode Base64 string and convert to Uint8Array
-                let decodedMessage = base64StringToArrayBuffer(ciphertext);
-                let arrayBuffer = await webCrypto.decrypt(algorithm, key, decodedMessage); // Uint8Array
+            async function decrypt(ciphertext, password) {
+                let cipherBytes = utils.base64StringToBytes(ciphertext);
+                let magicPrefixBytes = utils.stringToBytes(OPENSSL_MAGIC_PREFIX);
+                let saltBytes = cipherBytes.slice(
+                    magicPrefixBytes.length,
+                    magicPrefixBytes.length + OPENSSL_SALT_LENGTH
+                );
+                let encryptedValueBytes = cipherBytes.slice(magicPrefixBytes.length + OPENSSL_SALT_LENGTH);
 
-                // Convert from Uint8Array to string
-                let result = String.fromCharCode(...new Uint8Array(arrayBuffer));
+                let { algorithm, key, iv, salt } = await generateKeyIv(password, saltBytes);
+                let resultBuffer = await window.crypto.subtle.decrypt(algorithm, key, encryptedValueBytes);
 
-                return result;
+                return utils.arrayBufferToString(resultBuffer);
             }
 
             /**
+             * Encrypt value
+             *
+             * OpenSSL output before Base64 encoding (note it's two underscores):
+             *     Salted__<8 bytes for salt><bytes for ciphertext>
+             *
+             * @link See https://github.com/meixler/web-browser-based-file-encryption-decryption
+             * @link See https://crypto.stackexchange.com/a/79855 on how OpenSSL prepends salt and
+             *     IV to encrypted value before encoding as Base64 string.
+             * @param {string} value - Plaintext value to be encrypted.
              * @param {AesCbcParams} algorithm - Algorithm with name and IV (initialization vector).
              * @param {CryptoKey} key
-             * @param {string} value - Plaintext value to be encrypted.
+             * @param {Uint8Array} ivBytes
+             * @param {Uint8Array} saltBytes
              * @returns {Promise<string>} Encrypted ciphertext encoded in Base64.
              */
-            async function encryptValue(algorithm, key, value) {
-                let encodedMessage = encoder.encode(value); // convert string to Uint8Array
-                let arrayBuffer = await webCrypto.encrypt(algorithm, key, encodedMessage); // Uint8Array
-                let result = arrayBufferToBase64String(arrayBuffer);
+            async function encrypt(value, algorithm, key, ivBytes, saltBytes) {
+                let valueBytes = utils.stringToBytes(value);
+                let cipherBuffer = await window.crypto.subtle.encrypt(algorithm, key, valueBytes); // ArrayBuffer
+                let cipherBytes = utils.arrayBufferToBytes(cipherBuffer);
 
-                return result;
+                let magicPrefixBytes = utils.stringToBytes(OPENSSL_MAGIC_PREFIX);
+                let resultBytes = new Uint8Array(magicPrefixBytes.length + saltBytes.length + cipherBytes.length);
+                resultBytes.set(magicPrefixBytes, 0);
+                resultBytes.set(saltBytes, magicPrefixBytes.length);
+                resultBytes.set(cipherBytes, magicPrefixBytes.length + saltBytes.length);
+
+                return utils.bytesToBase64String(resultBytes);
             }
 
             /**
-             * Generate key and IV
+             * Generate key and IV by deriving them from user-specified password
              *
              * @link https://developer.mozilla.org/en-US/docs/Web/API/CryptoKey
-             * @param {string} password
+             * @param {string} password - User-specified password that will be
+             *     used to derive the key and IV.
+             * @param {(null|Uint8Array)} saltBytes=null - Salt used in key.
+             *     New salt will be generated if not provided. Note that the
+             *     salt does not and should not include OPENSSL_MAGIC_PREFIX.
              * @returns {Promise<object>} Format:
              *     {
              *         algorithm: { // as per https://developer.mozilla.org/en-US/docs/Web/API/AesCbcParams
@@ -205,47 +312,82 @@
              *             iv: <initialization vector as Uint8Array>
              *         }
              *         key: <CryptoKey>,
-             *         ivAsBase64String: <initialization vector encoded as Base64 string>
+             *         iv: <initialization vector as Uint8Array>,
+             *         salt: <salt as Uint8Array>,
              *     }
              */
-            async function generateKeyIv(password) {
-                // Using a user-specified passphrase for encryption, hence not using generateKey()
+            async function generateKeyIv(password, saltBytes = null) {
+                // Generate new salt if not provided
+                // For decryption, original salt used during encryption must be provided
+                // See https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues
+                if (null === saltBytes) {
+                    saltBytes = window.crypto.getRandomValues(new Uint8Array(OPENSSL_SALT_LENGTH));
+                }
+
+                // Using a user-specified password for encryption, hence not using generateKey()
                 // See https://blog.engelke.com/2015/02/14/deriving-keys-from-passwords-with-webcrypto/
-                // and https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/deriveKey
-                let baseKey = await webCrypto.importKey( // Create a PBKDF2 base key containing the password
+                // and https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/deriveBits
+                let baseKey = await window.crypto.subtle.importKey( // create a PBKDF2 base key containing the password
                     'raw',
-                    encoder.encode(password), // convert string to ArrayBuffer/Uint8Array
-                    { name: 'PBKDF2' },
-                    false, // do not make it extractable
-                    ['deriveKey']
-                );
-                let key = await webCrypto.deriveKey(
+                    utils.stringToBytes(password), // convert string to Uint8Array
                     {
-                        'name': 'PBKDF2',
-                        'salt': encoder.encode(''), // no salt
-                        'iterations': 1000,
-                        'hash': 'SHA-256',
+                        name: OPENSSL_KEY_DERIVATION_ALGORITHM,
+                    },
+                    false, // do not make it extractable
+                    ['deriveBits']
+                );
+
+                let derivationBuffer = await window.crypto.subtle.deriveBits(
+                    {
+                        name: OPENSSL_KEY_DERIVATION_ALGORITHM,
+                        salt: saltBytes, // note that OPENSSL_MAGIC_PREFIX is not used here
+                        iterations: OPENSSL_KEY_DERIVATION_ITERATIONS,
+                        hash: OPENSSL_KEY_DERIVATION_DIGEST,
                     },
                     baseKey,
+                    (KEY_LENGTH + IV_LENGTH) * 8 // multiply by 8 to convert bytes to bits
+                );
+                let derivationBytes = utils.arrayBufferToBytes(derivationBuffer);
+
+                let keyBytes = derivationBytes.slice(0, KEY_LENGTH);
+                let ivBytes = derivationBytes.slice(KEY_LENGTH);
+                let key = await window.crypto.subtle.importKey(
+                    'raw',
+                    keyBytes,
                     {
-                        'name': 'AES-CBC',
-                        'length': 256,
+                        name: OPENSSL_CIPHER_ALGORITHM,
+                        length: OPENSSL_CIPHER_BITS,
                     },
-                    false, // do not make it extractable
+                    false,
                     ['encrypt', 'decrypt']
                 );
 
-                // See https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues
-                let iv = window.crypto.getRandomValues(new Uint8Array(16));
-
                 return {
                     algorithm: {
-                        name: 'AES-CBC',
-                        iv: iv,
+                        name: OPENSSL_CIPHER_ALGORITHM,
+                        iv: ivBytes,
                     },
                     key: key,
-                    ivAsBase64String: arrayBufferToBase64String(iv),
+                    iv: ivBytes,
+                    salt: saltBytes,
+                };
+            }
+
+            /**
+             * @returns {boolean}
+             */
+            function isFormValid() {
+                let password = passwordField.value.trim();
+                if (!password) {
+                    return updateError('Please provide password.');
                 }
+
+                let text = inputTextField.value.trim();
+                if (!text) {
+                    return updateError('Please provide input text.');
+                }
+
+                return true;
             }
 
             /**
@@ -259,7 +401,6 @@
                     }
 
                     let password = passwordField.value.trim();
-                    let { algorithm, key, ivAsBase64String } = await generateKeyIv(password);
                     let lines = inputTextField.value.trim().split('\n');
 
                     let result = '';
@@ -279,13 +420,10 @@
 
                         // Value may contain "=" hence manual splitting
                         envVarName = line.substring(0, delimiterIndex);
-                        IvWithCiphertext = line.substring(delimiterIndex + 1);
-                        parts = IvWithCiphertext.split('.'); // use back same IV that was used for encryption
-                        algorithm.iv = base64StringToArrayBuffer(parts[0]);
-                        envVarCiphertext = parts[1];
+                        envVarCiphertext = line.substring(delimiterIndex + 1);
 
                         try {
-                            decryptedValue = await decryptCiphertext(algorithm, key, envVarCiphertext);
+                            decryptedValue = await decrypt(envVarCiphertext, password);
                         } catch (err) {
                             console.error(`Error decrypting env var "${envVarName}".`, err);
                             return updateResult(`Could not decrypt value for env var "${envVarName}".`);
@@ -309,7 +447,7 @@
                     }
 
                     let password = passwordField.value.trim();
-                    let { algorithm, key, ivAsBase64String } = await generateKeyIv(password);
+                    let { algorithm, key, iv, salt } = await generateKeyIv(password);
                     let lines = inputTextField.value.trim().split('\n');
 
                     let result = '';
@@ -330,20 +468,40 @@
                         envVarValue = line.substring(delimiterIndex + 1);
 
                         try {
-                            encryptedValue = await encryptValue(algorithm, key, envVarValue);
+                            encryptedValue = await encrypt(envVarValue, algorithm, key, iv, salt);
                         } catch (err) {
                             console.error(`Error encrypting env var "${envVarName}".`, err);
                             return updateResult(`Could not encrypt value for env var "${envVarName}".`);
                         }
 
                         // Must include IV as it will be used for decryption
-                        result += envVarName + '=' + ivAsBase64String + '.' + encryptedValue + '\n';
+                        result += envVarName + '=' + encryptedValue + '\n';
                     }
 
                     return updateResult(result.trim()); // remove additional newline added by encryption
                 });
             }
 
+            /**
+             * @returns {void}
+             */
+            function onTogglePasswordClick() {
+                togglePasswordLink.addEventListener('click', (event) => {
+                    event.preventDefault();
+
+                    if ('password' === passwordField.type) {
+                        passwordField.type = 'text';
+                        togglePasswordLink.innerHTML = 'Hide';
+                    } else {
+                        passwordField.type = 'password';
+                        togglePasswordLink.innerHTML = 'Show';
+                    }
+                });
+            }
+
+            /**
+             * @returns {void}
+             */
             function populateSampleValues() {
                 passwordField.value = 'The quick brown fox jumps over the lazy old dog.';
 
@@ -359,12 +517,12 @@ MYAPP_ENV=production
 MYAPP_CRON_SCHEDULE=0 * * * *
 
 # Root certificate for Certificate Authority (CA)
-# - This cannot be stored in the Docker image as it depends on which cloud provider the application is hosted on
+# - This cannot be stored in the Docker image as it depends on which cloud provider the application is hosted on.
 # - The contents need to be encoded as Base64 to eliminate issues with multi-line content and must be enclosed in
 #   double quotes. Max length of value for an env var is 131072 (see https://askubuntu.com/a/1385554 for more info).
 MYAPP_DB_SSL_CA="LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUQ5RENDQXR5Z0F3SUJBZ0lCUWpBTkJna3Foa2lHOXcwQkFRVUZBRENCaWpFTE1Ba0dBMVVFQmhNQ1ZWTXgKRXpBUkJnTlZCQWdNQ2xkaGMyaHBibWQwYjI0eEVEQU9CZ05WQkFjTUIxTmxZWFIwYkdVeElqQWdCZ05WQkFvTQpHVUZ0WVhwdmJpQlhaV0lnVTJWeWRtbGpaWE1zSUVsdVl5NHhFekFSQmdOVkJBc01Da0Z0WVhwdmJpQlNSRk14Ckd6QVpCZ05WQkFNTUVrRnRZWHB2YmlCU1JGTWdVbTl2ZENCRFFUQWVGdzB4TlRBeU1EVXdPVEV4TXpGYUZ3MHkKTURBek1EVXdPVEV4TXpGYU1JR0tNUXN3Q1FZRFZRUUdFd0pWVXpFVE1CRUdBMVVFQ0F3S1YyRnphR2x1WjNSdgpiakVRTUE0R0ExVUVCd3dIVTJWaGRIUnNaVEVpTUNBR0ExVUVDZ3daUVcxaGVtOXVJRmRsWWlCVFpYSjJhV05sCmN5d2dTVzVqTGpFVE1CRUdBMVVFQ3d3S1FXMWhlbTl1SUZKRVV6RWJNQmtHQTFVRUF3d1NRVzFoZW05dUlGSkUKVXlCU2IyOTBJRU5CTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUF1RDhuclo4Vgp1K1ZBOHlWbFVpcENaSUtQVERjT0lMWXBVZThUY3QwWWVRUXIwdXlsMDE4U3RkQnNhM0NqQmd2d3BEUnExSGdGCkppMk4zKzM5K3NoQ05zcFFlRTZhWVUrQkhYaEtoSUlTdHQzcjdnbC80TnFZaURETVdLSHhIcTBuc0dERmZBcmYKQU9jalpkSmFnT01xYjNmRjQ2ZmxjOGsyRTdUSFRtOVN6NEw3UlkxV2RBQk11dXJwSUNMRkUzb0hjR2RhcE9iOQpUNTNwUVIreHBIVzlhdGtjZjNwZjdnYk8wcmxLVlNJb1VlbkJsWmlwVWxwMVZabC9PRC9FK1R0UmhERE5kSTJKClAvRFNNTTNhRXNxNlpRa2Ziei9JbG1sK0x4M3RKWVhVRG1wK1pqek1QTGsvKzNiZVQ4RWhyd3RjRzNWUHB2d3AKQklPcXNxVlZUdncvQ3dJREFRQUJvMk13WVRBT0JnTlZIUThCQWY4RUJBTUNBUVl3RHdZRFZSMFRBUUgvQkFVdwpBd0VCL3pBZEJnTlZIUTRFRmdRVVRnTHVyRDcyRmNoTTdTejFCY0dQbklRSVNZTXdId1lEVlIwakJCZ3dGb0FVClRnTHVyRDcyRmNoTTdTejFCY0dQbklRSVNZTXdEUVlKS29aSWh2Y05BUUVGQlFBRGdnRUJBSFpjZ0lpbzhwQW0KTWpIRDVjbDZ3S2pYeFNjWEt0WHlnV0gyQm9ETVlCSkY5eWZ5S08yakVGeFlLYkhlUHBuWEIxUjA0ekpTV0F3NQoyRVV1REkxcFNCaDlCQTgyLzVQa3VObE5lU1RCM2RYREQyUEVQZHpWV2JTS3ZVQjhaZG9vVisydm5nTDBabTRyCjQ3UVB5ZDE4eVBIclJJYnRCdEhSLzZDd0tldkxaMzk0emdFeHFobmVrWUtJcXFFWDQxeHNVVjBHbTZ4NHZwamYKMnU2Ty8rWUUyVStxeXl4SEU1V2Q1b3FkZTBvbzlVVXBGRVRKUFZiNlEyY0VlUWliOFBCQXlpMGk2S25GK2tJVgpBOWRZN0lIU3VidENLL2k4d3hNVnFmZDVHdGJBOG1tcGVKRnduRHZtOXJCRXNIeWJsMDhxbGF4OXN5RXdzVVlyCi80ME5hd1pmVFVVPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg=="
 
-# APIs
+# API
 MYAPP_BASEURL=http://localhost:10000
                 `.trim();
             }
@@ -386,23 +544,6 @@ MYAPP_BASEURL=http://localhost:10000
              */
             function updateResult(result) {
                 resultElement.innerHTML = result;
-
-                return true;
-            }
-
-            /**
-             * @returns {boolean}
-             */
-            function isFormValid() {
-                let password = passwordField.value.trim();
-                if (!password) {
-                    return updateError('Please provide passphrase.');
-                }
-
-                let text = inputTextField.value.trim();
-                if (!text) {
-                    return updateError('Please provide input text.');
-                }
 
                 return true;
             }
