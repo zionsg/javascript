@@ -1,0 +1,32 @@
+<script src="deep-clone.js"></script>
+<script>
+    let obj = {
+        num: 1,
+        str: 'Hello World!',
+        arr: [2, 3],
+        date: new Date(),
+        add: function (a, b) {
+            return (a + b);
+        },
+        c: {
+            d: 4,
+        },
+        e: [
+            ['a', 'b', { add: function (a, b) { return (a + b); } }],
+            ['c', 'd', { add: function (a, b) { return (a + b); } }],
+        ],
+    };
+
+    let clone = deepClone(obj);
+
+    clone.c.d = 5;
+    console.log(obj.c.d, clone.c.d);
+
+    clone.e[0][1] = 'z';
+    console.log(obj.e[0][1], clone.e[0][1]);
+
+    clone.e[0][2].add = function (a, b) { return (a * b); };
+    console.log(obj.e[0][2].add(3, 5), clone.e[0][2].add(3, 5));
+
+    console.log({ obj, clone });
+</script>
