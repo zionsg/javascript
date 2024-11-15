@@ -2,6 +2,7 @@
  * Create deep clone of object
  *
  * This is needed as JSON.parse(JSON.stringify(obj)) removes functions.
+ * Note that this does not handle circular dependencies.
  *
  * @param {object} obj
  * @returns {object}
