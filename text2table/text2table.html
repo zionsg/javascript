@@ -495,20 +495,20 @@
             }
 
             // Construct HTML table
-            let html = '<table>';
+            let html = '<table>\n';
             jsonResultItems.forEach((row, rowIndex) => {
                 if (0 === rowIndex) {
-                    html += '<thead><tr>';
-                    html += Object.keys(row).map((col) => `<th>${col}</th>`).join('');
-                    html += '</tr></thead>';
-                    html += '<tbody>';
+                    html += '  <thead>\n    <tr>\n';
+                    html += Object.keys(row).map((col) => `      <th>${col}</th>\n`).join('');
+                    html += '    </tr>\n  </thead>\n';
+                    html += '  <tbody>\n';
                 }
 
-                html += '<tr>';
-                html += Object.values(row).map((col) => `<td>${col}</td>`).join('');
-                html += '</tr>';
+                html += '    <tr>\n';
+                html += Object.values(row).map((col) => `      <td>${col}</td>\n`).join('');
+                html += '    </tr>\n';
             });
-            html += '</tbody></table>';
+            html += '  </tbody>\n</table>\n';
 
             return {
                 table: resultRows.join("\n"),
