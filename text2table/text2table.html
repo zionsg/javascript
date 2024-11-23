@@ -38,6 +38,18 @@
         padding: 1rem;
       }
 
+      table {
+        border-collapse: collapse;
+      }
+      th {
+        background: #ccc;
+      }
+      th,
+      td {
+        border: 1px solid black;
+        padding: 0.5rem;
+      }
+
       a {
         color: #0000ff;
       }
@@ -111,7 +123,10 @@
     Insert divider every X rows after header row: <input id="rows-per-section" type="numeric" value="0" /><br><br>
     <button id="convert" onclick="convert();">Convert</button><br><br>
 
-    <b>RESULT IN TABLE FORMAT (click <a id="copy-to-clipboard-link" href="#">here</a> to copy to clipboard):</b>
+    <b>
+      RESULT IN ASCII/MARKDOWN TABLE FORMAT
+      (click <a id="copy-to-clipboard-link" href="#">here</a> to copy to clipboard):
+    </b>
     <textarea id="result-clipboard"></textarea>
     <pre id="result-table"></pre>
     <p>&nbsp;</p>
@@ -122,6 +137,10 @@
 
     <b>RESULT IN JSON FORMAT (click <a id="download-json-link" href="#">here</a> to download JSON file):</b>
     <pre id="result-json"></pre>
+    <p>&nbsp;</p>
+
+    <b>RESULT IN HTML TABLE FORMAT</b>
+    <div id="result-html"></div>
     <p>&nbsp;</p>
 
     <script>
@@ -138,6 +157,7 @@
         let resultCsv = document.getElementById('result-csv');
         let resultJson = document.getElementById('result-json');
         let resultTable = document.getElementById('result-table');
+        let resultHtml = document.getElementById('result-html');
 
         /**
          * Onload listener to load sample text
@@ -213,6 +233,7 @@
             resultTable.innerHTML = result.table;
             resultCsv.innerHTML = result.csv;
             resultJson.innerHTML = JSON.stringify(result.json, null, 2);
+            resultHtml.innerHTML = result.html;
 
             // Store results in element for copying to clipboard
             resultClipboard.value = result.table;
@@ -473,10 +494,27 @@
                 resultRows.push(divider);
             }
 
+            // Construct HTML table
+            let html = '<table>';
+            jsonResultItems.forEach((row, rowIndex) => {
+                if (0 === rowIndex) {
+                    html += '<thead><tr>';
+                    html += Object.keys(row).map((col) => `<th>${col}</th>`).join('');
+                    html += '</tr></thead>';
+                    html += '<tbody>';
+                }
+
+                html += '<tr>';
+                html += Object.values(row).map((col) => `<td>${col}</td>`).join('');
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+
             return {
                 table: resultRows.join("\n"),
                 csv: csvResultRows.join("\n"),
                 json: jsonResultItems,
+                html: html,
             };
         }
 
