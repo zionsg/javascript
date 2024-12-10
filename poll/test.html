@@ -2,15 +2,21 @@
 
 <script>
     (async function run() {
-        let endTimeMs = Date.now() + (2 * 60 * 1000); // run for 2 minutes
-        console.log('BEGIN', (new Date()).toISOString());
+        let currTime = new Date();
+        let currTimeMs = currTime.getTime();
+        let endTimeMs = currTimeMs + (2 * 60 * 1000); // run for 2 minutes
+        console.log('BEGIN', currTime.toISOString());
 
+        let prevTimeMs = currTimeMs;
         await poll(
             async function () {
                 let currTime = new Date();
-                console.log('poll', currTime.toISOString());
+                let currTimeMs = currTime.getTime();
 
-                return (currTime.getTime() >= endTimeMs);
+                console.log('poll', currTime.toISOString(), (currTimeMs - prevTimeMs) + ' ms');
+                prevTimeMs = currTimeMs;
+
+                return (currTimeMs >= endTimeMs);
             }
         );
 
