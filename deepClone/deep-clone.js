@@ -9,7 +9,7 @@
  */
 function deepClone(obj) {
     if (typeof obj !== 'object' || [null, undefined].includes(obj)) {
-        return obj;
+        return obj; // do not return {} as this is called recursively on child properties
     }
 
     let clone = null;
