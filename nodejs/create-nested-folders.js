@@ -13,7 +13,7 @@ if (maxLevel < 1) {
  *
  * @param {int} maxLevel - Maximum nesting level to avoid ENAMETOOLONG
  *     error with mkdir(), typically when path length exceeds 4096 characters.
- *     Testing shows error with value of 813, with value of 812 taking 2638 ms.
+ *     Testing shows error with value of 813, with value of 812 taking 8740 ms.
  * @returns {void}
  */
 function createNestedFolders(maxLevel) {
@@ -22,7 +22,7 @@ function createNestedFolders(maxLevel) {
         .map((i) => String.fromCharCode(i + 'a'.charCodeAt(0))); // letters from a to z
 
     let padLen = maxLevel.toString().length;
-    let fn = function (startPath, level = 1) {
+    let fn = function (startPath, level = 1, isRootFirstLetter = false) {
         if (level > maxLevel) {
             return;
         }
@@ -37,7 +37,8 @@ function createNestedFolders(maxLevel) {
             fs.writeFileSync(filePath, filePath);
             fs.mkdirSync(folderPath, { recursive: true });
 
-            if (0 === letterIndex) {
+            let flag = (0 === letterIndex && (1 === level || isRootFirstLetter));
+            if (flag) {
                 console.log(
                     (new Date()).toISOString(),
                     `Level: ${levelStr}`,
@@ -45,7 +46,7 @@ function createNestedFolders(maxLevel) {
                 );
 
                 // Only do for 1st folder else will take forever once level hits 5
-                fn(folderPath, level + 1);
+                fn(folderPath, level + 1, flag);
             }
         });
     };
