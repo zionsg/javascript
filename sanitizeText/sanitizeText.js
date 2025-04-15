@@ -12,7 +12,7 @@ function sanitizeText(text) {
     }
 
     // Replace with single space: \r, tab, no-break space, en space, em space, zero width space
-    result = result.replace(/[\r\t\u00A0\u2002\u2003\u200B]/g, ' ');
+    result = result.replace(/[\r\t\u2002\u2003\u200B]/g, ' ');
 
     // Reduce multiple consecutive spaces (not whitespace \s which includes newline) to a single space
     result = result.replace(/ {2,}/g, ' ');
