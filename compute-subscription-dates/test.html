@@ -1,0 +1,13 @@
+<script src="compute-subscription-dates.js"></script>
+
+<script>
+    let startTimestampSecs = 1646073045; // Tue 28 Feb 2022 18:30:45 UTC, Wed 01 Mar 2022 02:30:45 SGT
+    let renewalYear = 2023;
+    let years = 1;
+    console.log(computeSubscriptionDates(startTimestampSecs, renewalYear, years));
+
+    // Append "Z" to simulate SGT user keying in 01 Apr but treated as 01 Apr UTC when passed to backend server
+    // This is needed as running `new Date('2023-04-01 02:30:45')` in the browser would already convert it to SGT
+    startTimestampSecs = parseInt((new Date('2023-04-01T02:30:45Z')).getTime() / 1000);
+    console.log(computeSubscriptionDates(startTimestampSecs, '', 2));
+</script>
