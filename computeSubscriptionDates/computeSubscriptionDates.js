@@ -12,19 +12,19 @@
  * @public
  * @example Given startTimestampSecs of 1646073045
  *      (Tue 28 Feb 2022 18:30:45 UTC, Wed 01 Mar 2022 02:30:45 SGT),
- *      renewalYear = '2023' and years = 1,
+ *      renewalYear = '2023', years = 1 and retainTimePortion = false,
  *      this method will yield the following:
  *      - When run in JavaScript on a browser in Singapore timezone +08:00
  *        {
  *            original_start_date: '2022-03-01',
- *            original_start_timestamp: 1646073045,
  *            original_start_string: '2022-03-01T02:30:45+08:00',
+ *            original_start_timestamp: 1646073045,
  *            start_date: '2023-03-01',
- *            start_timestamp: 1677609045,
- *            start_date_string: '2023-03-01T02:30:45+08:00',
+ *            start_date_string: '2023-03-01T00:00:00+08:00',
+ *            start_timestamp: 1677600000,
  *            end_date: '2024-02-29',
- *            end_timestamp: 1709145045,
- *            end_date_string: '2024-02-29T02:30:45+08:00',
+ *            end_date_string: '2024-02-29T23:59:59+08:00',
+ *            end_timestamp: 1709222399
  *        }
  *      - When run in Node.js on a server set to UTC timezone +00:00
  *        {
@@ -32,11 +32,11 @@
  *            original_start_string: '2022-02-28T18:30:45+00:00',
  *            original_start_timestamp: 1646073045,
  *            start_date: '2023-02-28',
- *            start_date_string: '2023-02-28T18:30:45+00:00',
- *            start_timestamp: 1677609045,
+ *            start_date_string: '2023-02-28T00:00:00+00:00',
+ *            start_timestamp: 1677542400,
  *            end_date: '2024-02-27',
- *            end_date_string: '2024-02-27T18:30:45+00:00',
- *            end_timestamp: 1709058645
+ *            end_date_string: '2024-02-27T23:59:59+00:00',
+ *            end_timestamp: 1709078399
  *        }
  * @param {express.Request} request
  * @param {int} startTimestampSecs - Original start date of subscription, UNIX timestamp in seconds.
@@ -45,9 +45,12 @@
  *     2022-03-01, renewal start date will be 2030-03-01 if value is "2030", but will be
  *     2025-03-01 is value is "now" (assuming now is the year 2025).
  * @param {int} years=1 - Number of years to renew subscription for.
+ * @param {boolean} retainTimePortion=false - Whether to retain time portion from startTimestampSecs
+ *     for start_timestamp and end_timestamp in result. If false, start_timestamp will use 00:00:00
+ *     and end_timestamp will use 23:59:59.
  * @returns {object} See example above.
  */
-function computeSubscriptionDates(startTimestampSecs, renewalYear = '', years = 1) {
+function computeSubscriptionDates(startTimestampSecs, renewalYear = '', years = 1, retainTimePortion = false) {
     // For each Date object, add timezone offset before computing else year/monthIndex/day would be
     // wrong, e.g. 1646073045 (28 Feb 2022 18:30:45 UTC, 01 Mar 2022 02:30:45 SGT) would yield
     // (year 2022, monthIndex 1 which is Feb, day 28) when this method is run in a browser in
@@ -79,6 +82,15 @@ function computeSubscriptionDates(startTimestampSecs, renewalYear = '', years = 
     let endDateObj = new Date(startDateObj.getTime()); // inherits timezone offset hence no need to add again
     endDateObj.setUTCFullYear(startDateObj.getUTCFullYear() + parseInt(years));
     endDateObj.setUTCDate(day - 1); // minus 1 day while monthIndex stays the same
+
+    if (!retainTimePortion) {
+        startDateObj.setUTCHours(0);
+        startDateObj.setUTCMinutes(0);
+        startDateObj.setUTCSeconds(0);
+        endDateObj.setUTCHours(23);
+        endDateObj.setUTCMinutes(59);
+        endDateObj.setUTCSeconds(59);
+    }
 
     // Subtract off timezone offset after computing else time portion would be wrong,
     // e.g. 1646073045 (28 Feb 2022 18:30:45 UTC, 01 Mar 2022 02:30:45 SGT) would yield
