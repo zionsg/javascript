@@ -1,0 +1,11 @@
+<script src="listCarPlates.js"></script>
+
+<script>
+    let startPlate = 'SNX6835B';
+    let endPlate = 'SNX7321K';
+
+    let result = listCarPlates(startPlate, endPlate, false, ['Z'], [42]);
+    let favorites = result.filter((row) => row.includes('checksum'));
+
+    console.log(favorites.join('\n'));
+</script>
