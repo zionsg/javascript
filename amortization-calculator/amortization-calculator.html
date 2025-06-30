@@ -46,7 +46,6 @@
 
       .highlight {
         color: red;
-        font-weight: bold;
       }
 
       .schedule {
@@ -133,13 +132,18 @@
                             html += '<thead><tr><th>Method/Month</th>';
                             (result.headers || []).forEach((header) => {
                                 html += `<th>${header.label}<br>(`;
-                                if (29 === header.total_days) { // Feb in leap year
-                                    html += `<span class="highlight">${header.total_days}</span>`;
-                                } else {
-                                    html += header.total_days;
+
+                                let computedDaysHtml = '';
+                                if (header.computed_days !== header.total_days) {
+                                    computedDaysHtml = `<span class="highlight">${header.computed_days}/</span>`;
                                 }
 
-                                html += ' days)</th>';
+                                let totalDaysHtml = header.total_days;
+                                if (29 === header.total_days) { // Feb in leap year
+                                    totalDaysHtml = `<span class="highlight"><b>${header.total_days}</b></span>`;
+                                }
+
+                                html += `${computedDaysHtml}${totalDaysHtml} days)</th>`;
                             });
                             html += '<th>Total</th></tr></thead>';
 
@@ -203,7 +207,7 @@
                 ];
                 let result = {
                     headers: [
-                        // { label: 'Jan 2025', total_days: 31 },
+                        // { label: 'Jan 2025', total_days: 31, computed_days: 15 },
                     ],
                     methods: [
                         {
@@ -236,15 +240,12 @@
                         }
 
                         let daysInMonth = (new Date(year, month, 0)).getDate();
-                        result.headers.push({
-                            label: monthNames[month] + ' ' + year,
-                            total_days: daysInMonth,
-                        });
-
+                        let computedDays = daysInMonth;
                         let units = {
                             day: 0,
                             month: 0,
                         };
+
                         if (year === startYear && month === startMonth) {
                             units.day = daysInMonth - startDay + 1;
                         } else if (year === endYear && month === endMonth) {
@@ -262,6 +263,12 @@
                         } else {
                             units.month = 1;
                         }
+
+                        result.headers.push({
+                            label: monthNames[month] + ' ' + year,
+                            total_days: daysInMonth,
+                            computed_days: units.day,
+                        });
 
                         result.methods.forEach((method, methodIndex) => {
                             if (units[method.unit] > 0) {
