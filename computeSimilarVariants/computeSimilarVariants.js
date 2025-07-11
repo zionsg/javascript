@@ -19,10 +19,10 @@ function computeSimilarVariants(input) {
         '3': ['E'], // mirror
         '4': ['h'], // 4 written without the slant looks like inverted "h"
         '5': ['S'],
-        '6': ['G'],
+        '6': ['b', 'G'],
         '7': ['J', 'T'],
         '8': ['B'],
-        '9': ['g'],
+        '9': ['g', 'q'],
     };
 
     // Standardize to uppercase for all letters and construct reverse map
