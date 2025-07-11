@@ -2,7 +2,7 @@
  * Generate list of similar variants for input text
  *
  * @example Given "D@BS" as input, results will be:
- *     ['DBS', 'DBS', 'DB5', 'D8S', 'D85', '0BS', '0B5', '08S', '085']
+ *     ['DBS', 'DB5', 'D8S', 'D85', '0BS', '0B5', '08S', '085']
  * @param {string} input
  * @returns {string[]} Symbols will be removed, digits will be replaced by
  *     similar looking letters, and all letters will be uppercased.
@@ -60,7 +60,9 @@ function computeSimilarVariants(input) {
         results = newResults;
     });
 
-    results.unshift(normalizedText);
+    if (!results.includes(normalizedText)) {
+        results.unshift(normalizedText);
+    }
 
     return results;
 }
