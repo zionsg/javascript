@@ -1,6 +1,8 @@
 /**
- * Generate list of visually similar variants for input text
+ * Generate list of visually similar variants for input text to prevent homograph attacks
  *
+ * @link https://en.wikipedia.org/wiki/IDN_homograph_attack#Homographs_in_ASCII
+ * @link https://security.stackexchange.com/a/128463
  * @example Given "D@BS" as input, results will be:
  *     ['DBS', 'DB5', 'D8S', 'D85', '0BS', '0B5', '08S', '085']
  * @param {string} input
