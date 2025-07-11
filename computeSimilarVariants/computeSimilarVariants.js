@@ -1,5 +1,5 @@
 /**
- * Generate list of similar variants for input text
+ * Generate list of visually similar variants for input text
  *
  * @example Given "D@BS" as input, results will be:
  *     ['DBS', 'DB5', 'D8S', 'D85', '0BS', '0B5', '08S', '085']
