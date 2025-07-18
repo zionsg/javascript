@@ -1,0 +1,98 @@
+<script src="generateRows.js"></script>
+
+<script>
+    let companies = [
+        {
+            id: 1,
+            name: 'Acme Corporation',
+            founded_at: -1577923200,
+        },
+        {
+            id: 2,
+            name: 'Wayne Enterprises',
+            founded_at: 283996800,
+        },
+    ];
+
+    let regionsByCompanyId = {
+        '1': [
+            {
+                name: 'Singapore',
+                offices: 3,
+            },
+            {
+                name: 'Melbourne',
+                offices: 6,
+            },
+        ],
+        '2': [
+            {
+                name: 'Gotham City',
+                offices: 1,
+            },
+        ],
+    };
+
+    let foundersByCompanyId = {
+        '1': { name: 'John Doe' },
+        '2': { name: 'Patrick and Laura Wayne' },
+    };
+
+    let columns = [
+        {
+            title: 'Company',
+            valueFunction: function (record, childRecords, metadata) {
+                return record.name;
+            },
+        },
+        {
+            title: 'Founded On',
+            valueFunction: function (record, childRecords, metadata) {
+                return (new Date(record.founded_at * 1000)).toDateString();
+            },
+        },
+        {
+            title: 'Founded By',
+            valueFunction: function (record, childRecords, metadata) {
+                return (metadata?.founders?.[record.id]?.name || '');
+            },
+        },
+        {
+            title: 'No. of Regions',
+            childValueFunction: function (record, childRecord, metadata) {
+                return 1;
+            },
+            childAggregateFunction: function (values) {
+                return values.reduce((sum, value) => (sum + value), 0);
+            },
+            summaryFunction: function (rowValues) {
+                return rowValues.reduce((sum, value) => (sum + value), 0);
+            },
+        },
+        {
+            title: 'Total No. of Offices',
+            childValueFunction: function (record, childRecord, metadata) {
+                return childRecord.offices;
+            },
+            childAggregateFunction: function (values) {
+                return values.reduce((sum, value) => (sum + value), 0);
+            },
+            summaryFunction: function (rowValues) {
+                return rowValues.reduce((sum, value) => (sum + value), 0);
+            },
+        }
+    ];
+
+    let result = generateRows(columns, companies, regionsByCompanyId, {
+        founders: foundersByCompanyId,
+    });
+    console.log(result);
+
+    // Result:
+    //     [
+    //         ['Company', 'Founded On', 'Founded By', 'No. of Regions', 'Total No. of Offices'],
+    //         ['Acme Corporation', 'Thu Jan 01 1920', 'John Doe', 2, 9],
+    //         ['Wayne Enterprises', 'Mon Jan 01 1979', 'Patrick and Laura Wayne', 1, 1],
+    //         ['', '', '', 3, 10]
+    //     ]
+</script>
