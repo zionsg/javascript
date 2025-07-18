@@ -12,13 +12,12 @@
  *     child records using `columns[].childAggregateFunction` to compute value for the column.
  *     This is ignored if `columns[].valueFunction` is set.
  * @param {function(number[]): number} columns[].childAggregateFunction - Function used to
- *     aggregate computed values of child records, taking in those computed values and returning
- *     a value. The value will be aggregated with computed values for the other child records using
- *     `columns[].childAggregateFunction` to compute value for the column. This is ignored if
+ *     aggregate computed values of child records (each computed by `columns[].childValueFunction`),
+ *     taking in those computed values and returning a value. This is ignored if
  *     `columns[].valueFunction` is set.
  * @param {function(number[]): number} columns[].summaryFunction - Function used to aggregate
- *     values from all rows for the column, taking in those values and returning a value. The value
- *     will be used for the column in the summary row.
+ *     values from all data rows for the column, taking in those values and returning a value.
+ *     The value will be used for the column in the summary row.
  * @param {object[]} records - List of records.
  * @param {object} childRecordsByRecordId=null - Key-value pairs where key is the record ID as per
  *     `recordIdProperty` and value is list of child records belonging to the record.
@@ -28,12 +27,12 @@
  *     is stored.
  * @returns {array[]} List of rows. The 1st row will always be the header row comprising the
  *     column titles and the last row will always be the summary row comprising aggregate values
- *     for record rows. Sample result:
+ *     for data rows. Sample result:
  *     [
- *         ['Company', 'Founded On', 'Founded By', 'No. of Regions', 'Total No. of Offices'],
- *         ['Acme Corporation', 'Thu Jan 01 1920', 'John Doe', 2, 9],
- *         ['Wayne Enterprises', 'Mon Jan 01 1979', 'Patrick and Laura Wayne', 1, 1],
- *         ['', '', '', 3, 10]
+ *         ['Company', 'Founded On', 'Founded By', 'No. of Regions', 'Total No. of Offices'], // header row
+ *         ['Acme Corporation', 'Thu Jan 01 1920', 'John Doe', 2, 9], // data row
+ *         ['Wayne Enterprises', 'Mon Jan 01 1979', 'Patrick and Laura Wayne', 1, 1], // data row
+ *         ['', '', '', 3, 10] // summary row
  *     ]
  */
 function generateRows(columns, records, childRecordsByRecordId = null, metadata = null, recordIdProperty = 'id') {
@@ -62,7 +61,7 @@ function generateRows(columns, records, childRecordsByRecordId = null, metadata 
         }
     });
 
-    let getRow = function (record, childRecords) {
+    let getDataRow = function (record, childRecords) {
         let row = structuredClone(dataRowTemplate);
 
         childRecords.forEach((childRecord) => {
@@ -91,7 +90,7 @@ function generateRows(columns, records, childRecordsByRecordId = null, metadata 
     let rows = [headerRow];
     records.forEach((record) => {
         rows.push(
-            getRow(record, childRecordsByRecordId?.[record[recordIdProperty]] ?? [])
+            getDataRow(record, childRecordsByRecordId?.[record[recordIdProperty]] ?? [])
         );
     });
 
