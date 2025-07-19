@@ -38,22 +38,25 @@
         '2': { name: 'Patrick and Laura Wayne' },
     };
 
+    let aggregateFunction = function (values) {
+        return values.reduce((sum, value) => (sum + value), 0);
+    };
     let columns = [
         {
             title: 'Company',
-            valueFunction: function (record, childRecords, metadata) {
+            valueFunction: function (record, childRecords, metadata, childValues) {
                 return record.name;
             },
         },
         {
             title: 'Founded On',
-            valueFunction: function (record, childRecords, metadata) {
+            valueFunction: function (record, childRecords, metadata, childValues) {
                 return (new Date(record.founded_at * 1000)).toDateString();
             },
         },
         {
             title: 'Founded By',
-            valueFunction: function (record, childRecords, metadata) {
+            valueFunction: function (record, childRecords, metadata, childValues) {
                 return (metadata?.founders?.[record.id]?.name || '');
             },
         },
@@ -62,8 +65,8 @@
             childValueFunction: function (record, childRecord, metadata) {
                 return 1;
             },
-            childAggregateFunction: function (values) {
-                return values.reduce((sum, value) => (sum + value), 0);
+            valueFunction: function (record, childRecords, metadata, childValues) {
+                return aggregateFunction(childValues);
             },
             summaryFunction: function (rowValues) {
                 return rowValues.reduce((sum, value) => (sum + value), 0);
@@ -74,8 +77,8 @@
             childValueFunction: function (record, childRecord, metadata) {
                 return childRecord.offices;
             },
-            childAggregateFunction: function (values) {
-                return values.reduce((sum, value) => (sum + value), 0);
+            valueFunction: function (record, childRecords, metadata, childValues) {
+                return aggregateFunction(childValues);
             },
             summaryFunction: function (rowValues) {
                 return rowValues.reduce((sum, value) => (sum + value), 0);

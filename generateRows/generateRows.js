@@ -3,21 +3,18 @@
  *
  * @param {object[]} columns - Configuration for columns in each row.
  * @param {string} columns[].title - Title for column.
- * @param {function(object, object[], object): string|number} columns[].valueFunction - Function
- *     used to compute value for the column, taking in (record, child records for record, metadata)
- *     and returning a value. This is ignored if `columns[].childAggregateFunction` is set.
+ * @param {function(object, object[], object, string|number[]): string|number} columns[].valueFunction - Function
+ *     used to compute value for the column in a data row, taking in
+ *     (record, child records for record, metadata, computed values for child records)
+ *     and returning a value.
  * @param {function(object, object, object): string|number} columns[].childValueFunction - Function
- *     used to compute value for a child record, taking in (record, child record, metadata)
- *     and returning a value. The value will be aggregated with computed values for the other
- *     child records using `columns[].childAggregateFunction` to compute value for the column.
- *     This is ignored if `columns[].valueFunction` is set.
- * @param {function(number[]): number} columns[].childAggregateFunction - Function used to
- *     aggregate computed values of child records (each computed by `columns[].childValueFunction`),
- *     taking in those computed values and returning a value. This is ignored if
- *     `columns[].valueFunction` is set.
- * @param {function(number[]): number} columns[].summaryFunction - Function used to aggregate
- *     values from all data rows for the column, taking in those values and returning a value.
- *     The value will be used for the column in the summary row.
+ *     used to compute value for a child record for the column in a data row, taking in
+ *     (record, child record, metadata) and returning a value. The computed values for all the
+ *     child records using will be passed to `columns[].valueFunction` which will decide how those
+ *     value are aggregated.
+ * @param {function(string|number[]): string|number} columns[].summaryFunction - Function used to
+ *     aggregate values from all data rows for the column, taking in those values and returning a
+ *     value. The value will be used for the column in the summary row.
  * @param {object[]} records - List of records.
  * @param {object} childRecordsByRecordId=null - Key-value pairs where key is the record ID as per
  *     `recordIdProperty` and value is list of child records belonging to the record.
@@ -38,24 +35,32 @@
 function generateRows(columns, records, childRecordsByRecordId = null, metadata = null, recordIdProperty = 'id') {
     let columnTemplate = {
         title: '',
-        valueFunction: null, // function (record, childRecords, metadata) { return ''; }
+        valueFunction: null, // function (record, childRecords, metadata, childValues) { return ''; }
         childValueFunction: null, // function (record, childRecord, metadata) { return ''; }
-        childAggregateFunction: null, // function (values) { return values.reduce((sum, value) => (sum + value), 0); }
         summaryFunction: null, // function (rowValues) { return rowValues.reduce((sum, value) => (sum + value), 0); }
     };
 
     let headerRow = [];
     let dataRowTemplate = [];
     let summaryRow = [];
-    let hasSummaryFunction = false;
-    columns.forEach((column) => {
+    let functionColumnIndices = {
+        childValueFunction: [],
+        summaryFunction: [],
+    };
+    columns.forEach((column, columnIndex) => {
         column = Object.assign({}, columnTemplate, column);
         headerRow.push(column.title);
-        dataRowTemplate.push('function' === typeof column.childValueFunction ? [] : '');
+
+        if ('function' === typeof column.childValueFunction) {
+            dataRowTemplate.push([]);
+            functionColumnIndices.childValueFunction.push(columnIndex);
+        } else {
+            dataRowTemplate.push('');
+        }
 
         if ('function' === typeof column.summaryFunction) {
-            hasSummaryFunction = true;
             summaryRow.push([]);
+            functionColumnIndices.summaryFunction.push(columnIndex);
         } else {
             summaryRow.push('');
         }
@@ -63,21 +68,27 @@ function generateRows(columns, records, childRecordsByRecordId = null, metadata 
 
     let getDataRow = function (record, childRecords) {
         let row = structuredClone(dataRowTemplate);
+        let fn = null;
 
-        childRecords.forEach((childRecord) => {
-            columns.forEach((column, columnIndex) => {
-                if ('function' === typeof column.childValueFunction) {
-                    row[columnIndex].push(column.childValueFunction(record, childRecord, metadata));
-                } // no need for else as there is already a default value
+        if (functionColumnIndices.childValueFunction.length !== 0) {
+            childRecords.forEach((childRecord) => {
+                // The columns without the function will retain their default values
+                functionColumnIndices.childValueFunction.forEach((columnIndex) => {
+                    fn = columns[columnIndex].childValueFunction;
+                    row[columnIndex].push(fn(record, childRecord, metadata));
+                });
             });
-        });
+        }
 
         columns.forEach((column, columnIndex) => {
-            if ('function' === typeof column.childAggregateFunction) {
-                row[columnIndex] = column.childAggregateFunction(row[columnIndex]);
-            } else if ('function' === typeof column.valueFunction) {
-                row[columnIndex] = column.valueFunction(record, childRecords, metadata);
-            } // no need for else as there is already a default value
+            if ('function' === typeof column.valueFunction) { // no need for else as there is already a default value
+                row[columnIndex] = column.valueFunction(
+                    record,
+                    childRecords,
+                    metadata,
+                    Array.isArray(row[columnIndex]) ? row[columnIndex] : []
+                );
+            }
 
             if (Array.isArray(summaryRow[columnIndex])) {
                 summaryRow[columnIndex].push(row[columnIndex]);
@@ -94,11 +105,12 @@ function generateRows(columns, records, childRecordsByRecordId = null, metadata 
         );
     });
 
-    if (hasSummaryFunction) {
-        columns.forEach((column, columnIndex) => {
-            if ('function' === typeof column.summaryFunction) {
-                summaryRow[columnIndex] = column.summaryFunction(summaryRow[columnIndex]);
-            }
+    if (functionColumnIndices.summaryFunction.length !== 0) {
+        let fn = null;
+
+        functionColumnIndices.summaryFunction.forEach((columnIndex) => {
+            fn = columns[columnIndex].summaryFunction;
+            summaryRow[columnIndex] = fn(summaryRow[columnIndex]);
         });
     }
     rows.push(summaryRow);
