@@ -68,9 +68,7 @@
             valueFunction: function (record, childRecords, metadata, childValues) {
                 return aggregateFunction(childValues);
             },
-            summaryFunction: function (rowValues) {
-                return rowValues.reduce((sum, value) => (sum + value), 0);
-            },
+            summaryFunction: aggregateFunction,
         },
         {
             title: 'Total No. of Offices',
@@ -80,9 +78,7 @@
             valueFunction: function (record, childRecords, metadata, childValues) {
                 return aggregateFunction(childValues);
             },
-            summaryFunction: function (rowValues) {
-                return rowValues.reduce((sum, value) => (sum + value), 0);
-            },
+            summaryFunction: aggregateFunction,
         }
     ];
 
