@@ -47,7 +47,7 @@ function generateRows(columns, records, childRecordsByRecordId = null, metadata 
         tag: '',
         valueFunction: null, // function (record, childRecords, metadata, childValues) { return ''; }
         childValueFunction: null, // function (record, childRecord, metadata) { return ''; }
-        rowFunction: null, // function (row, columnIndex, columnIndexByTag) { }
+        rowFunction: null, // function (row, columnIndex, columnIndexByTag) { return row[columnIndex]; }
         summaryFunction: null, // function (rowValues) { return rowValues.reduce((sum, value) => (sum + value), 0); }
     };
 
