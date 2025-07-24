@@ -3,6 +3,10 @@
  *
  * @param {object[]} columns - Configuration for columns in each row.
  * @param {string} columns[].title - Title for column.
+ * @param {string} columns[].tag - Tag for column. If specified, it must be unique among all the
+ *     tags for all columns. This is mainly used for `columns[].rowFunction` where an object
+ *     containing tag-columnIndex pairs is passed in for quick reference to computed values for
+ *     specific columns in the row data.
  * @param {function(object, object[], object, string|number[]): string|number} columns[].valueFunction - Function
  *     used to compute value for the column in a data row, taking in
  *     (record, child records for record, metadata, computed values for child records)
@@ -12,6 +16,11 @@
  *     (record, child record, metadata) and returning a value. The computed values for all the
  *     child records using will be passed to `columns[].valueFunction` which will decide how those
  *     value are aggregated.
+ * @param {function(mixed[], int, object): string|number} columns[].rowFunction - Function that
+ *     takes in (a data row of computed values, index for this column, tag-columnIndex pairs)
+ *     and returns a value which will override the current computed value for the column. This can
+ *     be used to compute the value for a column which depends on the computed values of other
+ *     columns.
  * @param {function(string|number[]): string|number} columns[].summaryFunction - Function used to
  *     aggregate values from all data rows for the column, taking in those values and returning a
  *     value. The value will be used for the column in the summary row.
@@ -35,27 +44,39 @@
 function generateRows(columns, records, childRecordsByRecordId = null, metadata = null, recordIdProperty = 'id') {
     let columnTemplate = {
         title: '',
+        tag: '',
         valueFunction: null, // function (record, childRecords, metadata, childValues) { return ''; }
         childValueFunction: null, // function (record, childRecord, metadata) { return ''; }
+        rowFunction: null, // function (row, columnIndex, columnIndexByTag) { }
         summaryFunction: null, // function (rowValues) { return rowValues.reduce((sum, value) => (sum + value), 0); }
     };
 
     let headerRow = [];
     let dataRowTemplate = [];
     let summaryRow = [];
+    let columnIndexByTag = {};
     let functionColumnIndices = {
         childValueFunction: [],
+        rowFunction: [],
         summaryFunction: [],
     };
     columns.forEach((column, columnIndex) => {
         column = Object.assign({}, columnTemplate, column);
         headerRow.push(column.title);
 
+        if (column.tag) {
+            columnIndexByTag[column.tag] = columnIndex;
+        }
+
         if ('function' === typeof column.childValueFunction) {
             dataRowTemplate.push([]);
             functionColumnIndices.childValueFunction.push(columnIndex);
         } else {
             dataRowTemplate.push('');
+        }
+
+        if ('function' === typeof column.rowFunction) {
+            functionColumnIndices.rowFunction.push(columnIndex);
         }
 
         if ('function' === typeof column.summaryFunction) {
@@ -66,7 +87,7 @@ function generateRows(columns, records, childRecordsByRecordId = null, metadata 
         }
     });
 
-    let getDataRow = function (record, childRecords) {
+    let getDataRow = function (dataRowIndex, record, childRecords) {
         let row = structuredClone(dataRowTemplate);
         let fn = null;
 
@@ -91,17 +112,33 @@ function generateRows(columns, records, childRecordsByRecordId = null, metadata 
             }
 
             if (Array.isArray(summaryRow[columnIndex])) {
-                summaryRow[columnIndex].push(row[columnIndex]);
+                summaryRow[columnIndex][dataRowIndex] = row[columnIndex];
             }
         });
+
+        if (functionColumnIndices.rowFunction.length !== 0) {
+            functionColumnIndices.rowFunction.forEach((columnIndex) => {
+                fn = columns[columnIndex].rowFunction;
+                row[columnIndex] = fn(row, columnIndex, columnIndexByTag);
+
+                // Update summary values on value for column in row
+                if (Array.isArray(summaryRow[columnIndex])) {
+                    summaryRow[columnIndex][dataRowIndex] = row[columnIndex];
+                }
+            });
+        }
 
         return row;
     };
 
     let rows = [headerRow];
-    records.forEach((record) => {
+    records.forEach((record, recordIndex) => {
         rows.push(
-            getDataRow(record, childRecordsByRecordId?.[record[recordIdProperty]] ?? [])
+            getDataRow(
+                recordIndex,
+                record,
+                childRecordsByRecordId?.[record[recordIdProperty]] ?? []
+            )
         );
     });
 

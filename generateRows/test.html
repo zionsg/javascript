@@ -61,7 +61,21 @@
             },
         },
         {
+            title: 'Average No. of Offices per Region',
+            rowFunction: function (row, columnIndex, columnIndexByTag) {
+                return (
+                    1.0
+                    * (row[columnIndexByTag.offices] || 0)
+                    / (row[columnIndexByTag.regions] || 1)
+                );
+            },
+            summaryFunction: function (rowValues) {
+                return (1.0 * aggregateFunction(rowValues) / rowValues.length);
+            },
+        },
+        {
             title: 'No. of Regions',
+            tag: 'regions',
             childValueFunction: function (record, childRecord, metadata) {
                 return 1;
             },
@@ -72,6 +86,7 @@
         },
         {
             title: 'Total No. of Offices',
+            tag: 'offices',
             childValueFunction: function (record, childRecord, metadata) {
                 return childRecord.offices;
             },
