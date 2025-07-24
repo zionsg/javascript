@@ -66,10 +66,13 @@
         </a>
       </li>
       <li>
-        The expected input is 1 or more lines of comma-delimited strings,
-        with the format for each line being
-        <code>startDate,endDate,amount</code>,
-        e.g. <code>2025-01-01,2025-12-31,120</code>.
+        The expected input is 1 or more lines of comma-delimited strings,<br>
+        with the format for each line being<br>
+        <code>amortizationStartDate,amortizationEndDate,amount,windowStartDate,windowEndDate</code>,<br>
+        e.g. <code>2025-01-01,2025-12-31,120,2024-04-01,2026-03-31</code>.
+        <ul>
+          <li>The last 2 parameters are optional and default to the first 2 parameters if not specified.</li>
+        </ul>
       </li>
       <li>Empty lines will be ignored.</li>
       <li>An amortization schedule will be computed for each line in
@@ -78,7 +81,7 @@
     </ul>
 
     <b>INPUT TEXT:</b><br>
-    <textarea name="input" cols="40" rows="10"></textarea>
+    <textarea name="input" cols="50" rows="10"></textarea>
     <br><br>
     <button name="submit">Compute</button>
     <br><br>
@@ -98,7 +101,8 @@
                 inputElement.value = [
                     '2023-11-15,2024-11-14,120', // start month = end month, cross to leap year
                     '2024-03-21,2025-02-20,120', // start month > end month, cross year
-                    '2025-01-01,2025-12-31,120', // start month < end month, same year
+                    // start month < end month, same year, show in window of fiscal year across FY2025 and FY2026
+                    '2025-01-01,2025-12-31,120,2024-04-01,2026-03-31',
                 ].join('\n');
 
                 onSubmit();
@@ -120,9 +124,22 @@
                         let startDate = parts[0];
                         let endDate = parts[1];
                         let amount = parts[2];
-                        let result = (parts.length !== 3) ? null : amortize(startDate, endDate, amount);
+                        let windowStartDate = parts[3];
+                        let windowEndDate = parts[4];
+                        let result = amortize(startDate, endDate, amount, windowStartDate, windowEndDate);
 
-                        let html = `<div>Amortize $${amount} over term of ${startDate} to ${endDate}</div>`;
+                        let windowHtml = `${windowStartDate || startDate} to ${windowEndDate || endDate}`;
+                        if (
+                            (windowStartDate && windowStartDate !== startDate)
+                            || (windowEndDate && windowEndDate !== endDate)
+                        ) {
+                            windowHtml = `<span class="highlight">${windowHtml}</span>`;
+                        }
+
+                        let html = '<div>'
+                            + `Amortize $${amount} over term of ${startDate} to ${endDate} `
+                            + `(displaying in window period of ${windowHtml}).`
+                            + '</div>';
                         if (!result) {
                             html += '<i>Could not compute schedule.</i>';
                         } else {
@@ -157,13 +174,13 @@
                                     + (1 === method.unit_total ? method.unit : method.unit_plural)
                                     + ')</td>';
 
-                                // Values
+                                // Amounts
                                 let sum = 0;
                                 result.headers.forEach((header, headerIndex) => {
-                                    let value = method.values[headerIndex];
-                                    sum += value || 0;
+                                    let amount = method.amounts[headerIndex];
+                                    sum += amount || 0;
                                     html += '<td>'
-                                        + (value ? value.toFixed(2) : '')
+                                        + (amount ? amount.toFixed(2) : '')
                                         + '</td>';
                                 });
 
@@ -184,23 +201,100 @@
                 });
             }
 
-            function amortize(startDate, endDate, amount) {
+            /**
+             * Generate amortization schedule
+             *
+             * @param {string} startDate - Start date of amortization period in YYYY-MM-DD format.
+             * @param {string} endDate - End date of amortization period in YYYY-MM-DD format.
+             * @param {(int|float)} amount - Amount to amortize over period.
+             * @param {string} [windowStartDate=""] - Start date of window period in YYYY-MM-DD
+             *     format, defaults to `startDate` if not specified. Cannot be later than
+             *     `startDate`.
+             * @param {string} [windowEndDate=""] - End date of window period in YYYY-MM-DD
+             *     format, defaults to `startDate` if not specified. Cannot be earlier than
+             *     `endDate`.
+             * @returns {(null|object)} Null returned on error. Format of result using
+             *     (2023-11-15, 2023-12-14, 120, 2023-10-01, 2024-01-31) as method arguments:
+             *     {
+             *         "headers": [
+             *             {
+             *                 "label": "Oct 2023",
+             *                 "start_date": "2023-10-01",
+             *                 "end_date": "2023-10-31",
+             *                 "total_days": 31,
+             *                 "computed_days": 0
+             *             },
+             *             {
+             *                 "label": "Nov 2023",
+             *                 "start_date": "2023-11-01",
+             *                 "end_date": "2023-11-30",
+             *                 "total_days": 30,
+             *                 "computed_days": 16
+             *             },
+             *             {
+             *                 "label": "Dec 2023",
+             *                 "start_date": "2023-12-01",
+             *                 "end_date": "2023-12-31",
+             *                 "total_days": 31,
+             *                 "computed_days": 14
+             *             },
+             *             {
+             *                 "label": "Jan 2024",
+             *                 "start_date": "2024-01-01",
+             *                 "end_date": "2024-01-31",
+             *                 "total_days": 31,
+             *                 "computed_days": 0
+             *             }
+             *         ],
+             *         "methods": [
+             *             {
+             *                 "label": "By Day",
+             *                 "unit": "day",
+             *                 "unit_plural": "days",
+             *                 "unit_total": 30,
+             *                 "unit_values": [0, 16, 14, 0],
+             *                 "amounts": [0, 64, 56, 0]
+             *             },
+             *             {
+             *                 "label": "By Month",
+             *                 "unit": "month",
+             *                 "unit_plural": "months",
+             *                 "unit_total": 2,
+             *                 "unit_values": [0, 1, 1, 0],
+             *                 "amounts": [0, 60, 60, 0]
+             *             }
+             *         ]
+             *     }
+             */
+            function amortize(startDate, endDate, amount, windowStartDate = '', windowEndDate = '') {
                 if (amount < 0 || !startDate || !endDate || startDate > endDate) {
                     return null;
                 }
 
-                let startParts = (startDate.match(/^(\d{4})-(\d{2})-(\d{2})$/) || []).map((val) => parseInt(val));
-                let endParts = (endDate.match(/^(\d{4})-(\d{2})-(\d{2})$/) || []).map((val) => parseInt(val));
+                let dateRegex = /^(\d{4})-(\d{2})-(\d{2})$/;
+                let startParts = (startDate.match(dateRegex) || []).map((val) => parseInt(val));
+                let endParts = (endDate.match(dateRegex) || []).map((val) => parseInt(val));
                 if (0 === startParts.length || 0 === endParts.length) {
                     return null;
                 }
 
-                let startYear = startParts[1];
-                let startMonth = startParts[2];
-                let startDay = startParts[3];
-                let endYear = endParts[1];
-                let endMonth = endParts[2];
-                let endDay = endParts[3];
+                windowStartDate = windowStartDate || startDate;
+                windowEndDate = windowEndDate || endDate;
+
+                let windowStartParts = (windowStartDate.match(dateRegex) || []).map((val) => parseInt(val));
+                let windowEndParts = (windowEndDate.match(dateRegex) || []).map((val) => parseInt(val));
+                if (0 === windowStartParts.length || 0 === windowEndParts.length) {
+                    return null;
+                }
+                if (windowStartDate > startDate || windowEndDate < endDate) {
+                    return null;
+                }
+
+                // Destructuring array of regex groups into variables
+                let [startMatch, startYear, startMonth, startDay] = startParts;
+                let [endMatch, endYear, endMonth, endDay] = endParts;
+                let [windowStartMatch, windowStartYear, windowStartMonth, windowStartDay] = windowStartParts;
+                let [windowEndMatch, windowEndYear, windowEndMonth, windowEndDay] = windowEndParts;
 
                 let monthNames = [ // names start from index 1
                     '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
@@ -215,21 +309,21 @@
                             unit: 'day',
                             unit_plural: 'days',
                             unit_total: 0,
-                            units: [], // corresponds to headers
-                            values: [], // corresponds to units
+                            unit_values: [], // corresponds to headers
+                            amounts: [], // corresponds to unit_values
                         },
                         {
                             label: 'By Month',
                             unit: 'month',
                             unit_plural: 'months',
                             unit_total: 0,
-                            units: [],
-                            values: [],
+                            unit_values: [],
+                            amounts: [],
                         },
                     ],
                 };
 
-                // Compute headers and units for each amortization method
+                // Compute headers, unit values and amounts for each amortization method
                 for (let year = startYear; year <= endYear; year++) {
                     for (let month = 1; month <= 12; month++) {
                         if (
@@ -241,38 +335,42 @@
 
                         let daysInMonth = (new Date(year, month, 0)).getDate();
                         let computedDays = daysInMonth;
-                        let units = {
+                        let monthName = monthNames[month];
+                        let monthNumStr = month.toString().padStart(2, '0');
+                        let unitValues = {
                             day: 0,
                             month: 0,
                         };
 
                         if (year === startYear && month === startMonth) {
-                            units.day = daysInMonth - startDay + 1;
+                            unitValues.day = daysInMonth - startDay + 1;
                         } else if (year === endYear && month === endMonth) {
-                            units.day = endDay;
+                            unitValues.day = endDay;
                         } else {
-                            units.day = daysInMonth;
+                            unitValues.day = daysInMonth;
                         }
 
                         // 15 Nov 2023 to 14 Nov 2024 is 12 months
                         // 01 Jan 2025 to 31 Dec 2025 is 12 months
                         if (year === endYear && month === endMonth) {
-                            units.month = (endMonth === startMonth && endYear !== startYear)
+                            unitValues.month = (endMonth === startMonth && endYear !== startYear)
                                 ? 0
                                 : 1;
                         } else {
-                            units.month = 1;
+                            unitValues.month = 1;
                         }
 
                         result.headers.push({
-                            label: monthNames[month] + ' ' + year,
+                            label: `${monthName} ${year}`,
+                            start_date: `${year}-${monthNumStr}-01`,
+                            end_date: `${year}-${monthNumStr}-${daysInMonth}`,
                             total_days: daysInMonth,
-                            computed_days: units.day,
+                            computed_days: unitValues.day,
                         });
 
                         result.methods.forEach((method, methodIndex) => {
-                            if (units[method.unit] > 0) {
-                                result.methods[methodIndex].units.push(units[method.unit]);
+                            if (unitValues[method.unit] > 0) {
+                                result.methods[methodIndex].unit_values.push(unitValues[method.unit]);
                             }
                         });
                     }
@@ -280,32 +378,95 @@
 
                 // Compute amounts
                 (result.methods || []).forEach((method, methodIndex) => {
-                    let columnCnt = method.units.length;
+                    let columnCnt = method.unit_values.length;
                     result.methods[methodIndex].unit_total =
-                        method.units.reduce((sum, value) => (sum + value), 0);
+                        method.unit_values.reduce((sum, value) => (sum + value), 0);
 
                     for (let col = 0; col < columnCnt; col++) {
-                        let unit = method.units[col];
+                        let unitValue = method.unit_values[col];
                         let unitTotal = method.unit_total;
-                        result.methods[methodIndex].values.push(
-                            parseFloat((1.0 * amount * unit / unitTotal).toFixed(2))
+                        result.methods[methodIndex].amounts.push(
+                            parseFloat((1.0 * amount * unitValue / unitTotal).toFixed(2))
                         );
 
-                        // Top up the last value if all the values do not add up to the original amount
+                        // Top up the last amount if all the amounts do not add up to the original amount
                         if (col === columnCnt - 1) {
                             // Read directly as data in `method` would be outdated
-                            let valueTotal = result.methods[methodIndex].values.reduce(
-                                (sum, value) => (sum + value),
+                            let amountTotal = result.methods[methodIndex].amounts.reduce(
+                                (sum, amount) => (sum + amount),
                                 0
                             );
-                            let lastValue = result.methods[methodIndex].values[col];
+                            let lastValue = result.methods[methodIndex].amounts[col];
 
-                            result.methods[methodIndex].values[col] = (valueTotal === amount)
+                            result.methods[methodIndex].amounts[col] = (amountTotal === amount)
                                 ? parseFloat(lastValue.toFixed(2))
-                                : parseFloat((lastValue + (amount - valueTotal)).toFixed(2));
+                                : parseFloat((lastValue + (amount - amountTotal)).toFixed(2));
                         }
                     }
                 });
+
+                // Add blank columns to match window period
+                if (windowStartDate !== startDate) {
+                    for (let year = startYear; year >= windowStartYear; year--) {
+                        for (let month = 12; month >= 1; month--) {
+                            let monthNumStr = month.toString().padStart(2, '0');
+                            let date = `${year}-${monthNumStr}-01`;
+                            if (
+                                date < windowStartDate
+                                || (year === startYear && month >= startMonth)
+                            ) {
+                                continue;
+                            }
+
+                            let daysInMonth = (new Date(year, month, 0)).getDate();
+                            let monthName = monthNames[month];
+
+                            result.headers.unshift({
+                                label: `${monthName} ${year}`,
+                                start_date: date,
+                                end_date: `${year}-${monthNumStr}-${daysInMonth}`,
+                                total_days: daysInMonth,
+                                computed_days: 0,
+                            });
+
+                            result.methods.forEach((method, methodIndex) => {
+                                result.methods[methodIndex].unit_values.unshift(0);
+                                result.methods[methodIndex].amounts.unshift(0);
+                            });
+                        }
+                    }
+                }
+
+                if (windowEndDate !== endDate) {
+                    for (let year = endYear; year <= windowEndYear; year++) {
+                        for (let month = 1; month <= 12; month++) {
+                            let daysInMonth = (new Date(year, month, 0)).getDate();
+                            let monthName = monthNames[month];
+                            let monthNumStr = month.toString().padStart(2, '0');
+
+                            let date = `${year}-${monthNumStr}-${daysInMonth}`;
+                            if (
+                                (year === endYear && month <= endMonth)
+                                || date > windowEndDate
+                            ) {
+                                continue;
+                            }
+
+                            result.headers.push({
+                                label: `${monthName} ${year}`,
+                                start_date: `${year}-${monthNumStr}-01`,
+                                end_date: date,
+                                total_days: daysInMonth,
+                                computed_days: 0,
+                            });
+
+                            result.methods.forEach((method, methodIndex) => {
+                                result.methods[methodIndex].unit_values.push(0);
+                                result.methods[methodIndex].amounts.push(0);
+                            });
+                        }
+                    }
+                }
 
                 return result;
             }
