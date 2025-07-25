@@ -47,14 +47,14 @@ function generateRows(columns, records, childRecordsByRecordId = null, metadata 
         tag: '',
         valueFunction: null, // function (record, childRecords, metadata, childValues) { return ''; }
         childValueFunction: null, // function (record, childRecord, metadata) { return ''; }
-        rowFunction: null, // function (row, columnIndex, columnIndexByTag) { return row[columnIndex]; }
+        rowFunction: null, // function (row, columnIndex, tagColumnIndices) { return row[columnIndex]; }
         summaryFunction: null, // function (rowValues) { return rowValues.reduce((sum, value) => (sum + value), 0); }
     };
 
     let headerRow = [];
     let dataRowTemplate = [];
     let summaryRow = [];
-    let columnIndexByTag = {};
+    let tagColumnIndices = {}; // key-value pairs where key is column.tag and value is column index
     let functionColumnIndices = {
         childValueFunction: [],
         rowFunction: [],
@@ -65,7 +65,7 @@ function generateRows(columns, records, childRecordsByRecordId = null, metadata 
         headerRow.push(column.title);
 
         if (column.tag) {
-            columnIndexByTag[column.tag] = columnIndex;
+            tagColumnIndices[column.tag] = columnIndex;
         }
 
         if ('function' === typeof column.childValueFunction) {
@@ -119,7 +119,7 @@ function generateRows(columns, records, childRecordsByRecordId = null, metadata 
         if (functionColumnIndices.rowFunction.length !== 0) {
             functionColumnIndices.rowFunction.forEach((columnIndex) => {
                 fn = columns[columnIndex].rowFunction;
-                row[columnIndex] = fn(row, columnIndex, columnIndexByTag);
+                row[columnIndex] = fn(row, columnIndex, tagColumnIndices);
 
                 // Update summary values on value for column in row
                 if (Array.isArray(summaryRow[columnIndex])) {

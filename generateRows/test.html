@@ -62,11 +62,11 @@
         },
         {
             title: 'Average No. of Offices per Region',
-            rowFunction: function (row, columnIndex, columnIndexByTag) {
+            rowFunction: function (row, columnIndex, tagColumnIndices) {
                 return (
                     1.0
-                    * (row[columnIndexByTag.offices] || 0)
-                    / (row[columnIndexByTag.regions] || 1)
+                    * (row[tagColumnIndices.offices] || 0)
+                    / (row[tagColumnIndices.regions] || 1)
                 );
             },
             summaryFunction: function (rowValues) {
