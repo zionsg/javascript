@@ -7,6 +7,7 @@
  *     tags for all columns. This is mainly used for `columns[].rowFunction` where an object
  *     containing tag-columnIndex pairs is passed in for quick reference to computed values for
  *     specific columns in the row data.
+ * @param {(string|number)} columns[].value - Value for column. This is used first if specified.
  * @param {function(object, object[], object, string|number[]): string|number} columns[].valueFunction - Function
  *     used to compute value for the column in a data row, taking in
  *     (record, child records for record, metadata, computed values for child records)
@@ -45,6 +46,7 @@ function generateRows(columns, records, childRecordsByRecordId = null, metadata 
     let columnTemplate = {
         title: '',
         tag: '',
+        value: undefined, // needs to be undefined and not ""
         valueFunction: null, // function (record, childRecords, metadata, childValues) { return ''; }
         childValueFunction: null, // function (record, childRecord, metadata) { return ''; }
         rowFunction: null, // function (row, columnIndex, tagColumnIndices) { return row[columnIndex]; }
@@ -102,14 +104,16 @@ function generateRows(columns, records, childRecordsByRecordId = null, metadata 
         }
 
         columns.forEach((column, columnIndex) => {
-            if ('function' === typeof column.valueFunction) { // no need for else as there is already a default value
+            if (column.value !== undefined) {
+                row[columnIndex] = column.value;
+            } else if ('function' === typeof column.valueFunction) {
                 row[columnIndex] = column.valueFunction(
                     record,
                     childRecords,
                     metadata,
                     Array.isArray(row[columnIndex]) ? row[columnIndex] : []
                 );
-            }
+            } // no need for else as there is a default value
 
             if (Array.isArray(summaryRow[columnIndex])) {
                 summaryRow[columnIndex][dataRowIndex] = row[columnIndex];

@@ -38,6 +38,7 @@
         '2': { name: 'Patrick and Laura Wayne' },
     };
 
+    let currDate = (new Date()).toISOString();
     let aggregateFunction = function (values) {
         return values.reduce((sum, value) => (sum + value), 0);
     };
@@ -94,6 +95,10 @@
                 return aggregateFunction(childValues);
             },
             summaryFunction: aggregateFunction,
+        },
+        {
+            title: 'Updated On',
+            value: currDate,
         }
     ];
 
