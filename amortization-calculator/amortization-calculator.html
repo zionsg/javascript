@@ -267,7 +267,7 @@
              *     }
              */
             function amortize(startDate, endDate, amount, windowStartDate = '', windowEndDate = '') {
-                if (amount < 0 || !startDate || !endDate || startDate > endDate) {
+                if (!startDate || !endDate || startDate > endDate) {
                     return null;
                 }
 
