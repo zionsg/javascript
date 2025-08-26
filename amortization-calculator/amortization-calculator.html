@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amortization Calculator</title>
+    <title>Compute Amortization Schedule</title>
 
     <style>
       html,
@@ -68,10 +68,14 @@
       <li>
         The expected input is 1 or more lines of comma-delimited strings,<br>
         with the format for each line being<br>
-        <code>amortizationStartDate,amortizationEndDate,amount,windowStartDate,windowEndDate</code>,<br>
-        e.g. <code>2025-01-01,2025-12-31,120,2024-04-01,2026-03-31</code>.
+        <code>amortizationStartDate,amortizationEndDate,amount,windowStartDate,windowEndDate,paymentDate</code>,<br>
+        e.g. <code>2025-01-01,2025-12-31,120,2024-04-01,2026-03-31,2025-03-01</code>.
         <ul>
-          <li>The last 2 parameters are optional and default to the first 2 parameters if not specified.</li>
+          <li>
+            The last 3 parameters are optional and default to
+            <code>amortizationStartDate/amortizationEndDate/amortizationStartDate</code>
+            respectively if not specified.
+          </li>
         </ul>
       </li>
       <li>Empty lines will be ignored.</li>
@@ -81,7 +85,7 @@
     </ul>
 
     <b>INPUT TEXT:</b><br>
-    <textarea name="input" cols="50" rows="10"></textarea>
+    <textarea name="input" cols="60" rows="10"></textarea>
     <br><br>
     <button name="submit">Compute</button>
     <br><br>
@@ -103,6 +107,8 @@
                     '2024-03-21,2025-02-20,120', // start month > end month, cross year
                     // start month < end month, same year, show in window of fiscal year across FY2025 and FY2026
                     '2025-01-01,2025-12-31,120,2024-04-01,2026-03-31',
+                    // payment date later than start date
+                    '2025-01-01,2025-12-31,120,2024-04-01,2026-03-31,2025-03-01',
                 ].join('\n');
 
                 onSubmit();
@@ -126,7 +132,20 @@
                         let amount = parts[2];
                         let windowStartDate = parts[3];
                         let windowEndDate = parts[4];
-                        let result = amortize(startDate, endDate, amount, windowStartDate, windowEndDate);
+                        let paymentDate = parts[5];
+                        let result = amortize(
+                            startDate,
+                            endDate,
+                            amount,
+                            windowStartDate,
+                            windowEndDate,
+                            paymentDate
+                        );
+
+                        let paymentHtml = '';
+                        if (paymentDate) {
+                            paymentHtml = `<span class="highlight">with payment made later on ${paymentDate}</span> `;
+                        }
 
                         let windowHtml = `${windowStartDate || startDate} to ${windowEndDate || endDate}`;
                         if (
@@ -137,7 +156,7 @@
                         }
 
                         let html = '<div>'
-                            + `Amortize $${amount} over term of ${startDate} to ${endDate} `
+                            + `Amortize \$${amount} over term of ${startDate} to ${endDate} ${paymentHtml}`
                             + `(displaying in window period of ${windowHtml}).`
                             + '</div>';
                         if (!result) {
@@ -213,6 +232,11 @@
              * @param {string} [windowEndDate=""] - End date of window period in YYYY-MM-DD
              *     format, defaults to `startDate` if not specified. Cannot be earlier than
              *     `endDate`.
+             * @param {string} [paymentDate=""] - Date that payment was made in YYYY-MM-DD format,
+             *     defaults to `startDate` if not specified. Cannot be earlier than `startDate`.
+             *     E.g. Subscription plan is from Oct 2023 to Jan 2024 and is amortized as such,
+             *     but actual payment is only made in Dec 2023, hence Oct/Nov 2023 will show
+             *     zero value while their amortized values will be added onto Dec 2023.
              * @returns {(null|object)} Null returned on error. Format of result using
              *     (2023-11-15, 2023-12-14, 120, 2023-10-01, 2024-01-31) as method arguments:
              *     {
@@ -266,7 +290,14 @@
              *         ]
              *     }
              */
-            function amortize(startDate, endDate, amount, windowStartDate = '', windowEndDate = '') {
+            function amortize(
+                startDate,
+                endDate,
+                amount,
+                windowStartDate = '',
+                windowEndDate = '',
+                paymentDate = ''
+            ) {
                 if (!startDate || !endDate || startDate > endDate) {
                     return null;
                 }
@@ -290,11 +321,22 @@
                     return null;
                 }
 
+                let paymentParts = [];
+                paymentDate = paymentDate || startDate;
+                paymentParts = (paymentDate.match(dateRegex) || []).map((val) => parseInt(val));
+                if (0 === paymentParts.length) {
+                    return null;
+                }
+                if (paymentDate < startDate) {
+                    return null;
+                }
+
                 // Destructuring array of regex groups into variables
                 let [startMatch, startYear, startMonth, startDay] = startParts;
                 let [endMatch, endYear, endMonth, endDay] = endParts;
                 let [windowStartMatch, windowStartYear, windowStartMonth, windowStartDay] = windowStartParts;
                 let [windowEndMatch, windowEndYear, windowEndMonth, windowEndDay] = windowEndParts;
+                let [paymentMatch, paymentYear, paymentMonth, paymentDay] = paymentParts;
 
                 let monthNames = [ // names start from index 1
                     '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
@@ -324,6 +366,9 @@
                 };
 
                 // Compute headers, unit values and amounts for each amortization method
+                let paymentYearMonth = paymentDate.substring(0, 7);
+                let isPaymentInLaterMonth = (paymentYearMonth > startDate.substring(0, 7));
+                let paymentMonthsAfterStart = 0; // no. of months after startDate that payment is made
                 for (let year = startYear; year <= endYear; year++) {
                     for (let month = 1; month <= 12; month++) {
                         if (
@@ -341,6 +386,11 @@
                             day: 0,
                             month: 0,
                         };
+
+                        let currYearMonth = `${year}-${monthNumStr}`;
+                        if (isPaymentInLaterMonth && currYearMonth < paymentYearMonth) {
+                            paymentMonthsAfterStart++;
+                        }
 
                         if (year === startYear && month === startMonth) {
                             unitValues.day = daysInMonth - startDay + 1;
@@ -402,6 +452,16 @@
                                 ? parseFloat(lastValue.toFixed(2))
                                 : parseFloat((lastValue + (amount - amountTotal)).toFixed(2));
                         }
+                    }
+
+                    // Payment date later than start date - bring forward amounts in months before
+                    // payment date to the month of the payment date, and then set those months
+                    // before as zero
+                    for (let col = 0; col < paymentMonthsAfterStart; col++) {
+                        result.methods[methodIndex].amounts[paymentMonthsAfterStart] +=
+                            result.methods[methodIndex].amounts[col];
+
+                        result.methods[methodIndex].amounts[col] = 0;
                     }
                 });
 
