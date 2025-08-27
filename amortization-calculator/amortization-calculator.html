@@ -143,7 +143,7 @@
                         );
 
                         let paymentHtml = '';
-                        if (paymentDate) {
+                        if (paymentDate > startDate) {
                             paymentHtml = `<span class="highlight">with payment made later on ${paymentDate}</span> `;
                         }
 
@@ -233,10 +233,11 @@
              *     format, defaults to `startDate` if not specified. Cannot be earlier than
              *     `endDate`.
              * @param {string} [paymentDate=""] - Date that payment was made in YYYY-MM-DD format,
-             *     defaults to `startDate` if not specified. Cannot be earlier than `startDate`.
-             *     E.g. Subscription plan is from Oct 2023 to Jan 2024 and is amortized as such,
-             *     but actual payment is only made in Dec 2023, hence Oct/Nov 2023 will show
-             *     zero value while their amortized values will be added onto Dec 2023.
+             *     defaults to `startDate` if not specified. Will be ignored if earlier than
+             *     `startDate`. E.g. Subscription plan is from Oct 2023 to Jan 2024 and is
+             *     amortized as such, but actual payment is only made in Dec 2023, hence
+             *     Oct/Nov 2023 will show zero value while their amortized values will be added
+             *     onto Dec 2023.
              * @returns {(null|object)} Null returned on error. Format of result using
              *     (2023-11-15, 2023-12-14, 120, 2023-10-01, 2024-01-31) as method arguments:
              *     {
@@ -328,7 +329,7 @@
                     return null;
                 }
                 if (paymentDate < startDate) {
-                    return null;
+                    paymentDate = startDate;
                 }
 
                 // Destructuring array of regex groups into variables
