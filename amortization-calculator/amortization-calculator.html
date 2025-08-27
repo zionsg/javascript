@@ -227,17 +227,14 @@
              * @param {string} endDate - End date of amortization period in YYYY-MM-DD format.
              * @param {(int|float)} amount - Amount to amortize over period.
              * @param {string} [windowStartDate=""] - Start date of window period in YYYY-MM-DD
-             *     format, defaults to `startDate` if not specified. Cannot be later than
-             *     `startDate`.
+             *     format, defaults to `startDate` if not specified or later than `startDate`.
              * @param {string} [windowEndDate=""] - End date of window period in YYYY-MM-DD
-             *     format, defaults to `startDate` if not specified. Cannot be earlier than
-             *     `endDate`.
+             *     format, defaults to `endDate` if not specified or earlier than `endDate`.
              * @param {string} [paymentDate=""] - Date that payment was made in YYYY-MM-DD format,
-             *     defaults to `startDate` if not specified. Will be ignored if earlier than
-             *     `startDate`. E.g. Subscription plan is from Oct 2023 to Jan 2024 and is
-             *     amortized as such, but actual payment is only made in Dec 2023, hence
-             *     Oct/Nov 2023 will show zero value while their amortized values will be added
-             *     onto Dec 2023.
+             *     defaults to `startDate` if not specified or earlier than `startDate`.
+             *     E.g. Subscription plan is from Oct 2023 to Jan 2024 and is amortized as such,
+             *     but actual payment is only made in Dec 2023, hence Oct/Nov 2023 will show zero
+             *     value while their amortized values will be added onto Dec 2023.
              * @returns {(null|object)} Null returned on error. Format of result using
              *     (2023-11-15, 2023-12-14, 120, 2023-10-01, 2024-01-31) as method arguments:
              *     {
@@ -312,24 +309,28 @@
 
                 windowStartDate = windowStartDate || startDate;
                 windowEndDate = windowEndDate || endDate;
+                if (windowStartDate > startDate) {
+                    windowStartDate = startDate;
+                }
+                if (windowEndDate < endDate) {
+                    windowEndDate = endDate;
+                }
 
                 let windowStartParts = (windowStartDate.match(dateRegex) || []).map((val) => parseInt(val));
                 let windowEndParts = (windowEndDate.match(dateRegex) || []).map((val) => parseInt(val));
                 if (0 === windowStartParts.length || 0 === windowEndParts.length) {
                     return null;
                 }
-                if (windowStartDate > startDate || windowEndDate < endDate) {
-                    return null;
+
+                paymentDate = paymentDate || startDate;
+                if (paymentDate < startDate) {
+                    paymentDate = startDate;
                 }
 
                 let paymentParts = [];
-                paymentDate = paymentDate || startDate;
                 paymentParts = (paymentDate.match(dateRegex) || []).map((val) => parseInt(val));
                 if (0 === paymentParts.length) {
                     return null;
-                }
-                if (paymentDate < startDate) {
-                    paymentDate = startDate;
                 }
 
                 // Destructuring array of regex groups into variables
