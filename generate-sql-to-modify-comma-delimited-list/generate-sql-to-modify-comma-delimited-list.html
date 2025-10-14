@@ -154,16 +154,19 @@
                         {
                             "id": "101",
                             "name": "Alpha",
+                            "deleted_at": 0,
                             "project_ids": "1,2,3"
                         },
                         {
                             "id": "102",
                             "name": "Beta",
+                            "deleted_at": 0,
                             "project_ids": "3,4,5"
                         },
                         {
                             "id": "103",
-                            "name": "Gamma",
+                            "name": "Gamma's Delta",
+                            "deleted_at": parseInt(Date.now() / 1000),
                             "project_ids": "7,6,5"
                         }
                     ],
@@ -241,10 +244,14 @@
 
                     let cols = [];
                     Object.keys(row).forEach((col) => {
+                        let val = row[col];
+
                         if ('id' === col || col.endsWith('_id') || col.endsWith('_at')) {
-                            cols.push(`${col} = ` + parseInt(row[col]))
+                            val = parseInt(val);
+                            cols.push(`${col} = ${val}`)
                         } else {
-                            cols.push(`${col} = '${row[col]}'`);
+                            val = val.replaceAll("'", "\\'");
+                            cols.push(`${col} = '${val}'`);
                         }
                     });
 
