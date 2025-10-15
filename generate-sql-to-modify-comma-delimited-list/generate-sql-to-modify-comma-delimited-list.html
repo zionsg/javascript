@@ -65,7 +65,7 @@
             Sample SQL query to find records containing a value in a comma-delimited list using exact match
             (e.g. match 42 and not 142 or 423):<br>
             <code>
-              SELECT id, name, project_ids FROM some_table WHERE CONCAT(',', project_ids, ',') LIKE '%,42,%';
+              SELECT id, name, deleted_at, project_ids FROM some_table WHERE CONCAT(',', project_ids, ',') LIKE '%,42,%';
             </code>
           </li>
         </ul>
