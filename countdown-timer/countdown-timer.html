@@ -27,6 +27,7 @@
                 ending: '🤫',
                 seconds: 10,
                 size: 256,
+                starttime: '', // HH:mm to start timer
             };
 
             window.addEventListener('DOMContentLoaded', function () {
@@ -53,8 +54,27 @@
                 });
                 window.history.pushState('Countdown Timer', document.title, urlObj.toString());
 
-                // Start
-                updateTimer(timerElement, Date.now(), options);
+                // Start timer
+                let startTime = options.starttime;
+                let matches = startTime.match(/(\d\d)\:(\d\d)/);
+                let startHour = parseInt(matches?.[1]) || -1;
+                let startMin = parseInt(matches?.[2]) || -1;
+                if (startHour >= 0 && startHour <= 23 && startMin >= 0 && startMin <= 59) {
+                    // Start only at specified time
+                    let intervalId = window.setInterval(() => {
+                        let date = new Date();
+                        let timeStr = date.getHours().toString().padStart(2, '0')
+                            + ':' + date.getMinutes().toString().padStart(2, '0');
+
+                        if (timeStr >= startTime) {
+                            window.clearInterval(intervalId);
+                            updateTimer(timerElement, date.getTime(), options);
+                        }
+                    });
+                } else {
+                    // Start immediately
+                    updateTimer(timerElement, Date.now(), options);
+                }
             });
 
             function updateTimer(timerElement, startTimeMs, options) {
