@@ -375,6 +375,28 @@
             }
 
             /**
+             * Generate user password
+             *
+             * @param {int} length=16 - Length of password.
+             * @returns {string}
+             */
+            function generateUserPassword(length = 16) {
+                // Digits and letters omitted due to visual similarity:
+                // 0 (like O), 1 (like I and small L), 5 (like S), 8 (like B), 9 (like small G),
+                // B, D, I, L, O, S, U, V
+                let characters = '23467ACEFGHJKMNPQRTWXYZ';
+                let charArray = characters.split('');
+
+                let result = '';
+                for (let i = 1; i <= length; i++) {
+                    let randomIndex = Math.floor(Math.random() * charArray.length);
+                    result += charArray[randomIndex];
+                }
+
+                return result;
+            }
+
+            /**
              * @returns {boolean}
              */
             function isFormValid() {
@@ -502,7 +524,7 @@
              * @returns {void}
              */
             function populateSampleValues() {
-                passwordField.value = 'The quick brown fox jumps over the lazy old dog.';
+                passwordField.value = generateUserPassword(32);
 
                 inputTextField.value = `
 ##
