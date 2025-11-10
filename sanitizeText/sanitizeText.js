@@ -6,7 +6,7 @@
  * @returns {string}
  */
 function sanitizeText(text) {
-    let result = (text ?? '').toString();
+    let result = (text ?? '').toString().trim();
     if (!result.length) {
         return result;
     }
