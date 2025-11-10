@@ -45,13 +45,20 @@
     The following modifications will be performed automatically when
     text is typed or pasted into the editor.
     <ul>
-      <li>Beginning/trailing whitespace will be removed.</li>
-      <li>Carriage return <code>\r</code> characters will be removed.</li>
-      <li>Tabs will be replaced with single spaces.</li>
+      <li>
+        The following characters will be replaced with a single space each:
+        Carriage return <code>\r</code>, tab <code>\t</code>, en space
+        <code>&#x2002;</code>, em space <code>&#x2003;</code>,
+        zero width space <code>&gt;&#x200B;&lt;</code> (between angle brackets).
+      </li>
       <li>Multiple consecutive spaces will be reduced to a single space.</li>
       <li>
+        Beginning and trailing whitespace will not be trimmed as it would 
+        prevent spaces from being keyed in.
+      </li>
+      <li>
         Smart punctuation from Microsoft Word/Excel such as
-        <code>“ ”  ″ ‘ ’ ′ — –</code> will be replaced with their normal ASCII forms
+        <code>“ ” ″ ‘ ’ ′ ‐ — –</code> will be replaced with their normal ASCII forms
         <code>" ' -</code>.
       </li>
     </ul>
