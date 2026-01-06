@@ -116,6 +116,8 @@
     <br><br>
 
     <input id="is-html-table" type="checkbox" /> Input text is HTML <code>&lt;table&gt;</code><br>
+    <input id="fix-wrapped-sql-tabular-result" type="checkbox" />
+      Fix wrapped SQL tabular result (where columns exceeding terminal width are wrapped to the next line)<br>
     <input id="is-aws-cloudfront-log-format" type="checkbox" />
         Input text uses format of AWS CloudFront logs or AWS VPC flow logs
         (single-space delimited, <code>timestamp-local</code> column will be added)<br>
@@ -189,6 +191,7 @@
         function convert() {
             let text = textElement.value.trim();
             let isHtmlTable = document.getElementById('is-html-table').checked;
+            let fixWrappedSqlTabularResult = document.getElementById('fix-wrapped-sql-tabular-result').checked;
             let isAwsCloudfrontLogFormat = document.getElementById('is-aws-cloudfront-log-format').checked;
             let addTimestampLocalColumn = isAwsCloudfrontLogFormat;
             let hasFooterRow = document.getElementById('has-footer-row').checked;
@@ -221,6 +224,20 @@
                     rows.push(row.join("\t"));
                 });
                 text = rows.join("\n");
+            }
+
+            // Fix wrapped SQL tabular result where columns exceeding terminal width are wrapped to the next line
+            if (fixWrappedSqlTabularResult) {
+                let fixedText = '';
+                let lines = text.split("\n");
+
+                lines.forEach((line) => {
+                    line = line.trim();
+                    fixedText += (['+', '|'].includes(line.substring(0, 1)) ? "\n" : '')
+                        + line;
+                });
+
+                text = fixedText;
             }
 
             // If input uses AWS CloudFront log format, single space is considered as delimiter, so change to pipe
