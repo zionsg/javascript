@@ -231,10 +231,16 @@
                 let fixedText = '';
                 let lines = text.split("\n");
 
-                lines.forEach((line) => {
+                let delimiters = ['+', '|'];
+                lines.forEach((line, lineIndex) => {
                     line = line.trim();
-                    fixedText += (['+', '|'].includes(line.substring(0, 1)) ? "\n" : '')
-                        + line;
+
+                    let prevLine = (lines[lineIndex - 1] ?? '').trim();
+                    if (!delimiters.includes(prevLine.substring(prevLine.length - 1))) {
+                        fixedText += line;
+                    } else {
+                        fixedText += (delimiters.includes(line.substring(0, 1)) ? "\n" : '') + line;
+                    }
                 });
 
                 text = fixedText;
