@@ -122,11 +122,11 @@
                         resultHtml = 'Input text is empty or has no alphanumeric characters.';
                     } else {
                         let results = generate(text);
-                        resultHtml = 'Suggested normalized form:' + "\n" + normalize(text) + "\n\n"
+                        resultHtml = 'Suggested normalized form (uppercase letters only):' 
+                            + "\n" + normalize(text) + "\n\n"
                             + (results.length + 1)
                             + ' homoglyphs generated (including input text):'
-                            + "\n"
-                            + results.join("\n");
+                            + "\n" + results.join("\n");
                     }
 
                     resultElement.innerHTML = resultHtml;
