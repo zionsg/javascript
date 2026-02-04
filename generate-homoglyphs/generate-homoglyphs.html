@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate Homoglyphs</title>
+
+    <style>
+      html,
+      body {
+        font-family: monospace;
+        font-size: 16px;
+      }
+
+      body {
+        padding: 0 1rem;
+      }
+
+      button,
+      input {
+        font-family: monospace;
+        font-size: 1rem;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h3>Generate Homoglyphs</h3>
+
+    <ul>
+      <li>Only the Latin alphabet (A to Z) and Arabic numerals (0 to 9) are used when generating homoglyphs.</li>
+      <li>Spaces and symbols will not be included in homoglyphs.</li>
+    </ul>
+
+    <b>INPUT TEXT:</b><br>
+    <input name="text" size="50" value="# Y2K38 *">
+    <br><br>
+
+    <button name="submit">Generate</button><br><br>
+
+    <b>RESULT:</b>
+    <pre><div class="result js-result"></div></pre><br><br>
+
+    <script>
+        (function () {
+            let textElement = document.querySelector('[name="text"]');
+            let submitButton = document.querySelector('[name="submit"]');
+            let resultElement = document.querySelector('.js-result');
+
+            /* @type {object} Key-value pairs where key is character and value is list of homoglyphs. */
+            let map = { // homoglyph order: digits, uppercase letters, lowercase letters (letters in alphabetical order)
+                '0': ['D', 'O', 'o'],
+                '1': ['I', 'l'],
+                '2': ['Z'],
+                '3': ['E'],
+                '4': ['h'],
+                '5': ['S', 's'],
+                '6': ['G', 'b'],
+                '7': ['T', 'Z'],
+                '8': ['B'],
+                '9': ['J', 'g'],
+                'A': [],
+                'B': ['8'],
+                'C': [],
+                'D': ['0', 'O', 'o'],
+                'E': ['3'],
+                'F': [],
+                'G': ['6'],
+                'H': [],
+                'I': ['1', 'l'],
+                'J': ['9', 'g'],
+                'K': [],
+                'L': [],
+                'M': ['W'],
+                'N': [],
+                'O': ['0', 'D', 'o'],
+                'P': [],
+                'Q': [],
+                'R': [],
+                'S': ['5', 's'],
+                'T': ['7'],
+                'U': ['V', 'v'],
+                'V': ['U', 'u'],
+                'W': ['M'],
+                'X': [],
+                'Y': [],
+                'Z': ['2'],
+                'a': ['o'],
+                'b': ['6', 'G'],
+                'c': [],
+                'd': [],
+                'e': [],
+                'f': [],
+                'g': ['9', 'J'],
+                'h': ['4'],
+                'i': ['1', 'l'],
+                'j': [],
+                'k': [],
+                'l': ['1', 'i'],
+                'm': ['w'],
+                'n': [],
+                'o': ['0', 'O'],
+                'p': [],
+                'q': [],
+                'r': [],
+                's': ['5'],
+                't': [],
+                'u': ['V', 'v'],
+                'v': ['U', 'u'],
+                'w': ['m'],
+                'x': [],
+                'y': [],
+                'z': [],
+            };
+
+            window.addEventListener('DOMContentLoaded', () => {
+                submitButton.addEventListener('click', (event) => {
+                    let text = textElement.value.replace(/[^a-z0-9]/gi, '');
+
+                    let resultHtml = '';
+                    if (!text) {
+                        resultHtml = 'Input text is empty or has no alphanumeric characters.';
+                    } else {
+                        let results = generate(text);
+                        resultHtml = 'Suggested normalized form:' + "\n" + normalize(text) + "\n\n"
+                            + (results.length + 1)
+                            + ' homoglyphs generated (including input text):'
+                            + "\n"
+                            + results.join("\n");
+                    }
+
+                    resultElement.innerHTML = resultHtml;
+                });
+
+                submitButton.dispatchEvent(new Event('click'));
+                textElement.focus();
+            });
+
+            function generate(text, level = 0) {
+                if (level > 0) {
+                    return [text, ...(map[text] ?? [])]; // include the original character
+                }
+
+                let result = [];
+                let chars = text.split('');
+                for (let i = 0; i < chars.length; i++) {
+                    let homoglyphs = generate(chars[i], level + 1);
+
+                    if (0 === i) {
+                        result = [...homoglyphs];
+                        continue;
+                    }
+
+                    let newResult = [];
+                    result.forEach((char) => {
+                        homoglyphs.forEach((homoglyph) => {
+                            newResult.push(char + homoglyph);
+                        });
+                    });
+                    result = [...newResult];
+                }
+
+                return result;
+            }
+
+            function normalize(text) {
+                // Replace digits with uppercase letters (4 looks like h on Casio watches)
+                // 0123456789
+                // OIZEHSGTBJ
+                let result = (text || '').toString().replace(/[^a-z0-9]/gi, '').toUpperCase()
+                    .replaceAll('0', 'O')
+                    .replaceAll('1', 'I')
+                    .replaceAll('2', 'Z')
+                    .replaceAll('3', 'E')
+                    .replaceAll('4', 'H')
+                    .replaceAll('5', 'S')
+                    .replaceAll('6', 'G')
+                    .replaceAll('7', 'T')
+                    .replaceAll('8', 'B')
+                    .replaceAll('9', 'J');
+
+                return result;
+            }
+        })();
+    </script>
+  </body>
+</html>
