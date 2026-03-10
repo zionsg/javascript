@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Accessibility Demo</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet"
+      integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+
+    <style>
+      :root {
+        /*
+          // Value of 2000 set to overcome Bootstrap z-index variables as follows
+          :root {
+              --bs-dropdown-zindex: 1000;
+              --bs-offcanvas-zindex: 1045;
+              --bs-popover-zindex: 1070;
+              --bs-tooltip-zindex: 1080;
+          }
+          .sticky-top, .sticky-bottom { z-index: 1020; }
+          .fixed-top, .fixed-bottom: { z-index: 1030; }
+        */
+        --demo-z-index: 2000;
+      }
+
+      html,
+      body {
+        font-size: 16px; /* fix base font size for easier computation of rem units */
+        margin: 0;
+        padding: 0;
+      }
+
+      section {
+        border-top: 1px solid lightgray;
+        margin: 0 auto;
+        padding: 2rem;
+        text-align: center;
+      }
+
+      footer {
+        padding: 1rem;
+      }
+
+      a {
+        cursor: pointer;
+      }
+
+      .btn:focus-visible {
+        outline: 2px solid black; /* show outline around button when user uses Tab key to select it */
+      }
+
+      .link-skip-to-main-content { /* adapted from https://www.a11y-collective.com/blog/skip-to-main-content/ */
+        background-color: black;
+        color: white;
+        left: -100%;
+        opacity: 0;
+        padding: 1rem;
+        position: absolute;
+        z-index: var(--demo-z-index);
+      }
+      .link-skip-to-main-content:focus {
+        left: 50%;
+        opacity: 1;
+        transform: translateX(-50%);
+      }
+
+      /* Top menu bar */
+      .navbar-top .nav-link:hover {
+        background-color: lightgray;
+        border-radius: var(--bs-border-radius);
+      }
+
+      .navbar-top .dropdown-menu {
+        padding: 1rem;
+        z-index: var(--demo-z-index);
+      }
+
+      .navbar-top a.dropdown-item {
+        padding: 0.5rem;
+      }
+      .navbar-top a.dropdown-item i.bi {
+        margin-right: 0.5rem;
+      }
+
+      .navbar-top .dropdown-item:focus,
+      .navbar-top .dropdown-item:hover {
+        border-radius: var(--bs-border-radius);
+      }
+
+      /* Section: Forms */
+      fieldset {
+        border: 1px solid lightgray;
+        border-radius: var(--bs-border-radius);
+        padding: 1rem;
+      }
+      fieldset legend {
+        font-size: 1.25rem;
+      }
+
+      form label {
+        display: block;
+        margin-bottom: 1rem;
+      }
+
+      /* Section: Tabs */
+      .responsive-tabs .nav-tabs {
+        display: none;
+      }
+      @media (max-width: 767px) {
+        .responsive-tabs .tab-pane {
+          display: block;
+          opacity: 1;
+        }
+
+        .responsive-tabs .card:not(:first-child) {
+          border-top-left-radius: 0;
+          border-top-right-radius: 0;
+        }
+
+        .responsive-tabs .card:not(:last-child) {
+          border-bottom: none;
+          border-bottom-left-radius: 0;
+          border-bottom-right-radius: 0;
+        }
+
+        .responsive-tabs .card .card-header:not(:has(a[aria-expanded="true"])) {
+          border-bottom: none;
+        }
+
+        .responsive-tabs .card .card-header a {
+          text-decoration: none;
+        }
+
+        .responsive-tabs .card .card-header a[aria-expanded="true"] {
+          color: var(--bs-nav-tabs-link-active-color);
+        }
+      }
+      @media (min-width: 768px) {
+        .responsive-tabs .nav-tabs {
+          display: flex;
+        }
+
+        .responsive-tabs .card {
+          border: none;
+        }
+
+        .responsive-tabs .card .card-header {
+          display: none;
+        }
+
+        .responsive-tabs .card .collapse {
+          display: block;
+        }
+
+        .responsive-tabs .tab-content {
+          border: 1px solid var(--bs-border-color);
+          border-top: none;
+          border-bottom-left-radius: var(--bs-border-radius);
+          border-bottom-right-radius: var(--bs-border-radius);
+        }
+      }
+
+      /* Section: Tables */
+      table caption {
+        caption-side: top;
+        font-size: 1.25rem;
+        font-weight: bold;
+      }
+
+      .table .actions {
+        text-align: right;
+      }
+
+      .table .actions .dropdown-toggle { /* style dropdown button so it doesn't look like a dropdown */
+        background: none;
+        border: none;
+        padding-block: 0;
+        padding-inline: 0;
+      }
+      .table .actions .dropdown-toggle::before {
+        display: none;
+      }
+      .table .actions .dropdown-menu.show {
+        padding: 0.5rem;
+        z-index: var(--demo-z-index);
+      }
+    </style>
+  </head>
+
+  <body>
+    <a href="#main-content" class="link-skip-to-main-content">Skip to main content</a>
+
+    <header>
+      <nav class="navbar navbar-expand-md navbar-top">
+        <div class="container">
+          <a class="navbar-brand" href="#" aria-label="Home"><i class="bi bi-globe2" aria-hidden="true"></i></a>
+
+          <button class="navbar-toggler" type="button"
+            data-bs-toggle="collapse" data-bs-target=".navbar-top .navbar-collapse"
+            aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+
+          <div class="collapse navbar-collapse">
+            <ul class="navbar-nav me-auto">
+              <li class="nav-item">
+                <a class="nav-link" href="#section-columns">Columns</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#section-forms">Forms</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#section-tabs">Tabs</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#section-tables">Tables</a>
+              </li>
+            </ul>
+
+            <div class="navbar-user-menu d-flex align-items-center">
+              <div class="dropdown">
+                <a class="btn btn-transparent dropdown-toggle ps-0 ps-md-1" href="#" role="button"
+                  data-bs-toggle="dropdown" aria-expanded="false">
+                  <b>My account</b>
+                </a>
+
+                <ul class="dropdown-menu dropdown-menu-md-end">
+                  <li>
+                    <a class="dropdown-item nav-link js-edit-profile" href="/web/profile">
+                      <i class="bi bi-person-gear" aria-hidden="true"></i><span>Edit Profile</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item nav-link" href="/web/logout">
+                      <i class="bi bi-box-arrow-right" aria-hidden="true"></i><span>Logout</span>
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <div id="main-content" class="container">
+        <h1>Accessibility Demo</h1> <!-- h1 for page title -->
+
+        <p>
+          Guidelines:
+          <ul>
+            <li>
+              <a href="https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/CSS_layout/Responsive_Design"
+                target="_blank" rel="noopener">Responsive design</a>,
+              i.e. adapts to different screen sizes, namely mobile, tablet, desktop.
+            </li>
+            <li>
+              <a href="https://www.w3.org/WAI/ARIA/apg/practices/names-and-descriptions/"
+                target="_blank" rel="noopener">Accessible names<a> for all interactive elements.
+            </li>
+            <li>
+              Able to navigate using
+              <a href="https://developer.mozilla.org/en-US/docs/Web/Accessibility/Guides/Keyboard-navigable_JavaScript_widgets"
+                target="_blank" rel="noopener">Tab key</a> (Shift-Tab for reverse order).
+            </li>
+            <li>Buttons are for "doing", links are for "going".</li>
+            <li>
+              As much as possible, avoid setting the <code>id</code> attribute on HTML elements as
+              this creates global variables.
+              E.g.: <code>&lt;input id="companyName" name="company" type="text"&gt;</code> creates
+              a global variable <code>companyName</code> and
+              <code>console.log(companyName, window.companyName, window['companyName']);</code>
+              will return 3 references to the <code>&lt;input&gt;</code> element which when
+              modified, modifies the element directly.
+            </li>
+          </ul>
+        </p>
+
+        <section>
+          <h2 id="section-columns">Columns</h2> <!-- h2 for section titles -->
+
+          <p>
+            3 columns on desktop, 2 columns on tablet, 1 column on mobile.
+          </p>
+
+          <!-- Adapted from https://stackoverflow.com/a/21790499 -->
+          <div class="row"> <!-- all "col" under 1 "row" instead of multiple "row" divs -->
+            <div class="col-sm-6 col-md-4">Alpha</div>
+            <div class="col-sm-6 col-md-4">Beta</div>
+            <div class="col-sm-6 col-md-4">Gamma</div>
+            <div class="col-sm-6 col-md-4">Delta</div>
+            <div class="col-sm-6 col-md-4">Epsilon</div>
+          </div>
+        </section>
+
+        <section>
+          <h2 id="section-forms">Forms</h2>
+
+          <p>
+            Nest inputs within <code>&lt;label&gt;</code> to create implicit association for
+            accessible names.
+          </p>
+
+          <div class="d-flex justify-content-center">
+            <form action="" method="POST" class="text-start">
+              <label class="form-label">
+                Full Name
+                <input name="full_name" class="form-control" type="text" value="">
+              </label>
+
+              <label class="form-label">
+                Working Style
+                <select name="field" class="form-select">
+                  <option value="">Select option</option>
+                  <option value="lark">Morning lark</option>
+                  <option value="owl">Night owl</option>
+                </select>
+              </label>
+
+              <div class="form-check">
+                <label class="form-check-label">
+                  Subscribe to updates
+                  <input class="form-check-input" type="checkbox" checked>
+                </label>
+              </div>
+
+              <fieldset name="company_details">
+                <legend>Company Details</legend> <!-- this is the accessible name for the fieldset -->
+
+                <label class="form-label">
+                  Company Name
+                  <input name="company_name" class="form-control" type="text" value="">
+                </label>
+
+                <label class="form-label">
+                  Company Address
+                  <textarea name="company_address" class="form-control" rows="8"></textarea>
+                </label>
+              </fieldset>
+
+              <div class="input-group text-center mt-3">
+                <button name="submit" class="btn btn-primary mx-auto" type="submit">Submit</button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section>
+          <h2 id="section-tabs">Tabs</h2>
+
+          <p>
+            Horizontal tabs on desktop/laptop, vertical accordion on mobile
+          </p>
+
+          <!-- Adapted from https://gist.github.com/howbizarre/e9e5cc2aa301c1d3ed7f5bf5e82cb1bf -->
+          <div class="responsive-tabs">
+            <ul class="nav nav-tabs mt-3" role="tablist"> <!-- tab buttons -->
+              <li class="nav-item" role="presentation">
+                <a href="#" class="nav-link active" role="tab"
+                  data-bs-toggle="tab" data-bs-target=".tab-pane[data-tab='tab-alpha']"
+                  data-tab="tab-alpha">
+                  Alpha
+                </a>
+              </li>
+              <li class="nav-item" role="presentation">
+                <a href="#" class="nav-link" role="tab"
+                  data-bs-toggle="tab" data-bs-target=".tab-pane[data-tab='tab-beta']"
+                  data-tab="tab-beta">
+                  Beta
+                </a>
+              </li>
+            </ul>
+
+            <div class="tab-content"> <!-- tab panes -->
+              <div class="card tab-pane show active" role="tabpanel" data-tab="tab-alpha">
+                <div class="card-header">
+                  <a href="#" role="tab"
+                    data-bs-toggle="collapse" data-bs-target=".card[data-tab='tab-alpha'] .card-collapse"
+                    aria-expanded="true">
+                    Alpha
+                  </a>
+                </div>
+                <div class="card-collapse collapse show" data-bs-parent=".tab-content">
+                  <div class="card-body">
+                    For horizontal tabs, use the Tab key to focus on the active tab, then use the
+                    left and right arrow keys to navigate between the different tabs. Press Enter
+                    or Space to activate the currently focused tab. For vertical tabs
+                    (not shown here), use the up and down arrow keys.
+                  </div>
+                </div>
+              </div>
+
+              <div class="card tab-pane" role="tabpanel" data-tab="tab-beta">
+                <div class="card-header">
+                  <a href="#" role="tab"
+                    data-bs-toggle="collapse" data-bs-target=".card[data-tab='tab-beta'] .card-collapse">
+                    Beta
+                  </a>
+                </div>
+                <div class="card-collapse collapse" data-bs-parent=".tab-content">
+                  <div class="card-body">
+                    For vertical accordion, use the Tab key to move between the items in the
+                    accordion.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2 id="section-tables">Tables</h2>
+
+          <p>
+            Hide columns from the right as viewport gets smaller, with content
+            from hidden columns consolidated in a details icon.
+          </p>
+
+          <!--
+            Responsive table inspired by https://datatables.net/
+            JavaScript can be used to add the "d-none d-<breakpoint>-table-cell" CSS classes and
+            populate the details icon dynamically.
+          -->
+          <table class="table table-bordered">
+            <caption>Users</caption> <!-- this is the accessible name for the table -->
+
+            <!-- If column headers have dynamically added sort arrows, add aria-label to <th> -->
+            <thead class="sticky-top">
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th class="d-none d-sm-table-cell">Username</th>
+                <th class="d-none d-md-table-cell">Company Name</th>
+                <th class="d-none d-lg-table-cell">Role</th>
+                <th class="d-none d-xl-table-cell">Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>Alpha</td>
+                <td class="d-none d-sm-table-cell">alpha.admin</td>
+                <td class="d-none d-md-table-cell">Acme Inc.</td>
+                <td class="d-none d-lg-table-cell">Organization Admin</td>
+                <td class="d-none d-xl-table-cell">01 Jan 1900</td>
+                <td class="actions">
+                  <button class="btn" type="button" title="Edit User">
+                    <i class="bi bi-pencil" aria-hidden="true"></i>
+                  </button>
+
+                  <!-- When clicked, the info for the hidden columns will show in a <div> to the left of this button -->
+                  <!-- Only show button when there are hidden columns, i.e. starting from lg breakpoint -->
+                  <div class="dropstart d-inline-block d-xl-none">
+                    <button class="dropdown-toggle" type="button"
+                      data-bs-toggle="dropdown" aria-expanded="false"
+                      aria-label="Toggle extra information">
+                      <i class="bi bi-list-ul" aria-hidden="true"></i>
+                    </button>
+                    <div class="dropdown-menu">
+                      <p class="d-sm-none"><b>Username: </b><span>alpha.admin</span></p>
+                      <p class="d-md-none"><b>Company Name: </b><span>Acme Inc.</span></p>
+                      <p class="d-lg-none"><b>Role: </b><span>Organization Admin</span></p>
+                      <p class="d-xl-none"><b>Created: </b><span>01 Jan 1900</span></p>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>Beta</td>
+                <td class="d-none d-sm-table-cell">beta.finance</td>
+                <td class="d-none d-md-table-cell">Wayne Enterprises</td>
+                <td class="d-none d-lg-table-cell">Finance User</td>
+                <td class="d-none d-xl-table-cell">02 Feb 2020</td> <!-- palindrome in ISO 8601, US, British formats -->
+                <td class="actions">
+                  <button class="btn" type="button" title="Edit User">
+                    <i class="bi bi-pencil" aria-hidden="true"></i>
+                  </button>
+
+                  <div class="dropstart d-inline-block d-xl-none">
+                    <button class="dropdown-toggle" type="button"
+                      data-bs-toggle="dropdown" aria-expanded="false"
+                      aria-label="Toggle extra information">
+                      <i class="bi bi-list-ul" aria-hidden="true"></i>
+                    </button>
+                    <div class="dropdown-menu">
+                      <p class="d-sm-none"><b>Username: </b><span>beta.finance</span></p>
+                      <p class="d-md-none"><b>Company Name: </b><span>Wayne Enterprises</span></p>
+                      <p class="d-lg-none"><b>Role: </b><span>Finance User</span></p>
+                      <p class="d-xl-none"><b>Created: </b><span>02 Feb 2020</span></p>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      </div>
+    </main>
+
+    <footer>
+      <!-- Bootstrap breakpoint indicator -->
+      <div class="fixed-bottom fw-bold text-danger" aria-hidden="true">
+        Bootstrap breakpoint:
+        <div class="d-block d-sm-none">xs (mobile)</div>
+        <div class="d-none d-sm-block d-md-none">sm (tablet)</div>
+        <div class="d-none d-md-block d-lg-none">md (desktop)</div>
+        <div class="d-none d-lg-block d-xl-none">lg (desktop)</div>
+        <div class="d-none d-xl-block d-xxl-none">xl (desktop)</div>
+        <div class="d-none d-xxl-block">xxl (desktop)</div>
+      </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4"
+      crossorigin="anonymous"></script>
+  </body>
+</html>
