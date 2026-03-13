@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Date Difference</title>
+
+    <style>
+      html,
+      body {
+        font-family: monospace;
+        font-size: 16px;
+      }
+
+      body {
+        padding: 0 1rem;
+      }
+
+      form {
+        margin-bottom: 1rem;
+      }
+
+      fieldset {
+        margin: 1rem 0;
+        padding: 1rem;
+      }
+
+      label {
+        margin-right: 1rem;
+      }
+
+      button,
+      input {
+        font-family: monospace;
+        font-size: 1rem;
+      }
+
+      table {
+        border-collapse: collapse;
+      }
+
+      table caption {
+        caption-side: top;
+        font-weight: bold;
+      }
+
+      th,
+      td {
+        border: 1px solid black;
+        padding: 0.5rem;
+        text-align: center;
+      }
+
+      th {
+        background-color: lightgray;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h3>Date Difference</h3>
+
+    <form>
+      <label>
+        Pick a date:
+        <input name="date" type="date" autofocus>
+      </label>
+
+      <fieldset>
+        <legend>Add/subtract (key in negative numbers to subtract):</legend>
+        <label><input name="years" type="number"> years</label>
+        <label><input name="months" type="number"> months</label>
+        <label><input name="days" type="number"> days</label>
+      </fieldset>
+
+      <button name="submit" type="submit">Calculate date</button>
+    </form>
+
+    <b>RESULTS:</b>
+    <pre class="result js-result">
+      UNIX timestamp in seconds: <span class="js-timestamp-secs"></span>
+      UNIX timestamp in milliseconds: <span class="js-timestamp-ms"></span>
+      Date in local timezone: <span class="js-date-local"></span>
+      Date in GMT timezone: <span class="js-date-gmt"></span>
+    </pre>
+    <p>&nbsp;</p>
+
+    <table>
+      <caption>End of Month Calculations</caption>
+      <thead>
+        <tr>
+          <th data-set-date="1" data-months="-1">Set to 1st of month, then -1 month</th>
+          <th data-years="-1">-1 year</th>
+          <th data-months="-1">-1 month</th>
+          <th data-days="-30">-30 days</th>
+          <th data-reference>Reference Date</th>
+          <th data-days="30">+30 days</th>
+          <th data-months="1">+1 month</th>
+          <th data-years="1">+1 year</th>
+          <th data-set-date="1" data-months="1">Set to 1st of month, then +1 month</th>
+        </tr>
+      </thead>
+
+      <tbody></tbody>
+    </table>
+
+    <script>
+        (function () {
+            window.addEventListener('DOMContentLoaded', () => {
+                let formElement = document.querySelector('form');
+                let dateElement = document.querySelector('[name="date"]');
+                let yearsElement = document.querySelector('[name="years"]');
+                let monthsElement = document.querySelector('[name="months"]');
+                let daysElement = document.querySelector('[name="days"]');
+                let submitButton = document.querySelector('[name="submit"]');
+                let resultElement = document.querySelector('.js-result');
+                let tableElement = document.querySelector('table');
+
+                // Populate sample values
+                let currDate = new Date();
+                dateElement.value = currDate.getFullYear().toString()
+                    + '-' + (currDate.getMonth() + 1).toString().padStart(2, '0')
+                    + '-' + currDate.getDate().toString().padStart(2, '0');
+                yearsElement.value = 1;
+                monthsElement.value = 0;
+                daysElement.value = -1;
+
+                formElement.addEventListener('submit', (event) => {
+                    event.preventDefault();
+
+                    let resultDate = computeResultDate(
+                        new Date(dateElement.value),
+                        yearsElement.value,
+                        monthsElement.value,
+                        daysElement.value
+                    );
+
+                    resultElement.querySelector('.js-timestamp-secs').innerText = int(resultDate.getTime() / 1000);
+                    resultElement.querySelector('.js-timestamp-ms').innerText = resultDate.getTime();
+                    resultElement.querySelector('.js-date-local').innerText = resultDate.toString();
+                    resultElement.querySelector('.js-date-gmt').innerText = resultDate.toGMTString();
+                });
+                formElement.dispatchEvent(new Event('submit'));
+
+                populateTable(tableElement);
+            });
+
+            /**
+             * Compute result date
+             *
+             * @param {Date} inputDate
+             * @param {int} years - Years to add. Use negative number to perform subtraction.
+             * @param {int} months - Months to add. Use negative number to perform subtraction.
+             * @param {int} days - Days to add. Use negative number to perform subtraction.
+             * @returns {Date}
+             */
+            function computeResultDate(inputDate, years, months, days) {
+                let resultDate = new Date(inputDate.getTime());
+
+                resultDate.setFullYear(resultDate.getFullYear() + int(years));
+                resultDate.setMonth(resultDate.getMonth() + int(months));
+                resultDate.setDate(resultDate.getDate() + int(days));
+
+                return resultDate;
+            }
+
+            /**
+             * Cast value to integer with fallback if conversion yields NaN
+             *
+             * @param {mixed} value
+             * @param {int} fallbackValue=0
+             * @returns {int} Result will be a 32-bit integer in Base 10.
+             */
+            function int(value, fallbackValue = 0) {
+                // Can't use || cos (0 || -1) will return -1
+                // Can't use ?? cos (NaN ?? 0) will return NaN
+                let result = parseInt(value, 10);
+                return (isNaN(result) ? fallbackValue : result);
+            }
+
+            /**
+             * Populate table with end of months as reference dates
+             *
+             * @param {HTMLElement} tableElement
+             * @returns {void}
+             */
+            function populateTable(tableElement) {
+                let headerCells = tableElement.querySelector('thead > tr').querySelectorAll('th');
+
+                let referenceDateColumnIndex = -1;
+                for (const th of headerCells) {
+                    referenceDateColumnIndex++;
+
+                    if (th.hasAttribute('data-reference')) {
+                        break;
+                    }
+                }
+
+                let currYear = (new Date()).getFullYear();
+                let tbody = tableElement.querySelector('tbody');
+                for (let monthNum = 1; monthNum <= 12; monthNum++) {
+                    let endOfMonthDate = new Date(currYear, monthNum, 0);
+                    let tr = document.createElement('tr');
+
+                    headerCells.forEach((th, thIndex) => {
+                        let td = document.createElement('td');
+                        let dateToSet = int(th.getAttribute('data-set-date'));
+                        let years = int(th.getAttribute('data-years'));
+                        let months = int(th.getAttribute('data-months'));
+                        let days = int(th.getAttribute('data-days'));
+
+                        let inputDate = (0 === dateToSet)
+                            ? endOfMonthDate
+                            : new Date(currYear, monthNum - 1, dateToSet);
+                        let resultDate = computeResultDate(inputDate, years, months, days);
+
+                        td.innerText = resultDate.toDateString();
+                        if (referenceDateColumnIndex === thIndex) {
+                            td.style.backgroundColor = 'lightgray';
+                        }
+
+                        tr.appendChild(td);
+                    });
+
+                    tbody.appendChild(tr);
+                }
+            }
+        })();
+    </script>
+  </body>
+</html>
