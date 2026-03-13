@@ -42,7 +42,7 @@
         text-align: center;
       }
 
-      ul:not(.nav-tabs)::before { /* adapted from https://stackoverflow.com/a/20478913 */
+      ul[aria-label]::before { /* adapted from https://stackoverflow.com/a/20478913 */
         content: attr(aria-label);
         font-size: 120%;
         font-weight: bold;
