@@ -1,5 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
+  <!--
+  @link https://github.com/zionsg/javascript/blob/master/accessibility-demo/a11y.html
+  -->
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -39,7 +42,7 @@
         text-align: center;
       }
 
-      ul::before { /* adapted from https://stackoverflow.com/a/20478913 */
+      ul:not(.nav-tabs)::before { /* adapted from https://stackoverflow.com/a/20478913 */
         content: attr(aria-label);
         font-size: 120%;
         font-weight: bold;
