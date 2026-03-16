@@ -54,6 +54,17 @@
       th {
         background-color: lightgray;
       }
+
+      tr.leap-year td {
+        color: red;
+      }
+      tr.leap-year td.reference-date {
+        font-weight: bold;
+      }
+
+      td.reference-date {
+        background-color: lightgray;
+      }
     </style>
   </head>
 
@@ -197,32 +208,44 @@
                 }
 
                 let currYear = (new Date()).getFullYear();
+                let leapYear = 2028;
+
                 let tbody = tableElement.querySelector('tbody');
                 for (let monthNum = 1; monthNum <= 12; monthNum++) {
-                    let endOfMonthDate = new Date(currYear, monthNum, 0);
-                    let tr = document.createElement('tr');
+                    let yearRows = [currYear];
+                    if (2 === monthNum) {
+                        yearRows.push(leapYear);
+                    }
 
-                    headerCells.forEach((th, thIndex) => {
-                        let td = document.createElement('td');
-                        let dateToSet = int(th.getAttribute('data-set-date'));
-                        let years = int(th.getAttribute('data-years'));
-                        let months = int(th.getAttribute('data-months'));
-                        let days = int(th.getAttribute('data-days'));
-
-                        let inputDate = (0 === dateToSet)
-                            ? endOfMonthDate
-                            : new Date(currYear, monthNum - 1, dateToSet);
-                        let resultDate = computeResultDate(inputDate, years, months, days);
-
-                        td.innerText = resultDate.toDateString();
-                        if (referenceDateColumnIndex === thIndex) {
-                            td.style.backgroundColor = 'lightgray';
+                    yearRows.forEach((rowYear, rowIndex) => {
+                        let endOfMonthDate = new Date(rowYear, monthNum, 0);
+                        let tr = document.createElement('tr');
+                        if (rowYear === leapYear) {
+                            tr.classList.add('leap-year');
                         }
 
-                        tr.appendChild(td);
-                    });
+                        headerCells.forEach((th, thIndex) => {
+                            let td = document.createElement('td');
+                            let dateToSet = int(th.getAttribute('data-set-date'));
+                            let years = int(th.getAttribute('data-years'));
+                            let months = int(th.getAttribute('data-months'));
+                            let days = int(th.getAttribute('data-days'));
 
-                    tbody.appendChild(tr);
+                            let inputDate = (0 === dateToSet)
+                                ? endOfMonthDate
+                                : new Date(rowYear, monthNum - 1, dateToSet);
+                            let resultDate = computeResultDate(inputDate, years, months, days);
+
+                            td.innerText = resultDate.toDateString();
+                            if (referenceDateColumnIndex === thIndex) {
+                                td.classList.add('reference-date');
+                            }
+
+                            tr.appendChild(td);
+                        });
+
+                        tbody.appendChild(tr);
+                    });
                 }
             }
         })();
