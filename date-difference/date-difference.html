@@ -213,7 +213,7 @@
                 let tbody = tableElement.querySelector('tbody');
                 for (let monthNum = 1; monthNum <= 12; monthNum++) {
                     let yearRows = [currYear];
-                    if (2 === monthNum) {
+                    if (2 === monthNum && currYear !== leapYear) {
                         yearRows.push(leapYear);
                     }
 
