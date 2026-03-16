@@ -1,3 +1,4 @@
+// This only runs in Node.js and not in the browser due to use of fs.
 let maxLevel = parseInt(process.argv[2]) || 0;
 if (maxLevel < 1) {
     console.log('Syntax: node <script> <maximum no. of nesting levels>');
