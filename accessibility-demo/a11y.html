@@ -99,6 +99,41 @@
         border-radius: var(--bs-border-radius);
       }
 
+      /* Section: Alerts */
+      .alert::before {
+        display: inline-block;
+        font-family: "Bootstrap-icons"; /* required for code point in content property to work */
+        height: 1rem;
+        position: relative;
+        top: 0.15rem;
+        width: 1rem;
+      }
+      .alert.alert-danger::before {
+        /* See https://icons.getbootstrap.com/icons/exclamation-triangle-fill/ for code point */
+        content: "\F33A" / "Error";
+        /*
+          filter computed using https://github.com/angel-rs/css-color-filter-generator
+          based on color for .alert-danger.
+          background-color, color, fill will not work on the SVG here.
+          See https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/content
+          on setting of alternative text.
+        */
+        filter: brightness(0) saturate(100%) invert(17%) sepia(43%) saturate(3688%)
+          hue-rotate(335deg) brightness(82%) contrast(93%);
+      }
+      .alert.alert-info::before {
+        /* See https://icons.getbootstrap.com/icons/info-circle-fill/ for code point */
+        content: "\F430" / "Info";
+        filter: brightness(0) saturate(100%) invert(23%) sepia(9%) saturate(7153%)
+          hue-rotate(153deg) brightness(98%) contrast(96%);
+      }
+      .alert.alert-success::before {
+        /* See https://icons.getbootstrap.com/icons/check-circle-fill/ for code point */
+        content: "\F26A" / "Success";
+        filter: brightness(0) saturate(100%) invert(23%) sepia(25%) saturate(1335%)
+          hue-rotate(100deg) brightness(92%) contrast(90%);
+      }
+
       /* Section: Forms */
       fieldset {
         border: 1px solid lightgray;
@@ -216,6 +251,9 @@
           <div class="collapse navbar-collapse">
             <ul class="navbar-nav me-auto">
               <li class="nav-item">
+                <a class="nav-link" href="#section-alerts">Alerts</a>
+              </li>
+              <li class="nav-item">
                 <a class="nav-link" href="#section-columns">Columns</a>
               </li>
               <li class="nav-item">
@@ -293,8 +331,35 @@
           </ul>
         </p>
 
+        <section aria-labelledby="section-alerts">
+          <h2 id="section-alerts">Alerts</h2> <!-- h2 for section titles -->
+
+          <p>
+            Do not depend solely on color to differentiate the type of alert,
+            prepend icon for accessibility.
+          </p>
+
+          <div class="alert alert-success alert-dismissible fade show" role="alert">
+            This is a success message.
+            <button class="btn-close" type="button" data-bs-dismiss="alert"
+              aria-label="Close"></button>
+          </div>
+
+          <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            This is an error message.
+            <button class="btn-close" type="button" data-bs-dismiss="alert"
+              aria-label="Close"></button>
+          </div>
+
+          <div class="alert alert-info alert-dismissible fade show" role="alert">
+            This is an informational message.
+            <button class="btn-close" type="button" data-bs-dismiss="alert"
+              aria-label="Close"></button>
+          </div>
+        </section>
+
         <section aria-labelledby="section-columns">
-          <h2 id="section-columns">Columns</h2> <!-- h2 for section titles -->
+          <h2 id="section-columns">Columns</h2>
 
           <p>
             3 columns on desktop, 2 columns on tablet, 1 column on mobile.
