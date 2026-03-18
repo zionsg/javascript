@@ -55,10 +55,10 @@
         background-color: lightgray;
       }
 
-      tr.leap-year td {
+      tr.leap-year-february td {
         color: red;
       }
-      tr.leap-year td.reference-date {
+      tr.leap-year-february td.reference-date {
         font-weight: bold;
       }
 
@@ -190,6 +190,16 @@
             }
 
             /**
+             * Check if a year is a leap year
+             *
+             * @param {int} year
+             * @returns {boolean}
+             */
+            function isLeapYear(year) {
+                return ((0 === year % 400) || (0 === year % 4 && year % 100 !== 0));
+            }
+
+            /**
              * Populate table with end of months as reference dates
              *
              * @param {HTMLElement} tableElement
@@ -208,20 +218,20 @@
                 }
 
                 let currYear = (new Date()).getFullYear();
-                let leapYear = 2028;
+                let referenceLeapYear = 2028;
 
                 let tbody = tableElement.querySelector('tbody');
                 for (let monthNum = 1; monthNum <= 12; monthNum++) {
                     let yearRows = [currYear];
-                    if (2 === monthNum && currYear !== leapYear) {
-                        yearRows.push(leapYear);
+                    if (2 === monthNum && !isLeapYear(currYear)) {
+                        yearRows.push(referenceLeapYear);
                     }
 
                     yearRows.forEach((rowYear, rowIndex) => {
                         let endOfMonthDate = new Date(rowYear, monthNum, 0);
                         let tr = document.createElement('tr');
-                        if (rowYear === leapYear) {
-                            tr.classList.add('leap-year');
+                        if (2 === monthNum && isLeapYear(rowYear)) {
+                            tr.classList.add('leap-year-february');
                         }
 
                         headerCells.forEach((th, thIndex) => {
