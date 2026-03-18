@@ -623,6 +623,11 @@
                     `There are ${sections.length} sections on this page: `
                         + sectionNames.join(', ') + '.'
                 );
+
+                document.querySelector('form').addEventListener('submit', (event) => {
+                    event.preventDefault();
+                    return false;
+                });              
             });
         })();
     </script>
