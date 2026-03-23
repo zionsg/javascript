@@ -263,6 +263,54 @@
         }
 
         /**
+         * Convert timestamp from UTC timezone to local timezone and format as ISO 8601
+         *
+         * @param {(int|string|Date)} utcDateValue
+         * @returns {string} E.g. 2022-09-24T11:00:00.123+08:00.
+         *     Empty string returned if error.
+         */
+        function dateToIsoLocal(utcDateValue) {
+            let result = '';
+            let utcDate = toDate(utcDateValue);
+            if (!utcDate) {
+                console.error('Could not convert to Date:', utcDateValue);
+                return '';
+            }
+
+            // getTimezoneOffset() returns in reverse direction, e.g. -480 for Singapore +08:00, hence multiply by -1
+            let tzOffsetMins = -1 * utcDate.getTimezoneOffset();
+            let tzSign = (tzOffsetMins < 0) ? '-' : '+';
+            let tzHours = Math.floor(Math.abs(tzOffsetMins) / 60);
+            let tzMinutes = Math.abs(tzOffsetMins) - (tzHours * 60);
+
+            let localDate = new Date(utcDate.getTime() + (tzOffsetMins * 60 * 1000));
+            result = localDate.toISOString().replace('Z', '') // remove UTC timezone suffix
+                + tzSign + tzHours.toString().padStart(2, '0') + ':' + tzMinutes.toString().padStart(2, '0');
+
+            return result;
+        }
+
+        /**
+         * Trigger download of file with text contents
+         *
+         * @public
+         * @param {string} filename
+         * @param {string} text
+         * @returns {void}
+         */
+        function download(filename, text) {
+            let blob = new Blob([text], { type: 'text/plain; charset=utf-8' });
+
+            let url = window.URL.createObjectURL(blob);
+            let element = document.createElement('a');
+            element.href = url;
+            element.download = filename;
+            element.click();
+
+            window.URL.revokeObjectURL(url); // release object to free up memory
+        }
+
+        /**
          * Copy results to clipboard when link is clicked
          *
          * @returns {void}
@@ -285,10 +333,8 @@
             downloadCsvLink.addEventListener('click', (event) => {
                 event.preventDefault();
 
-                let element = document.createElement('a');
-                element.setAttribute('href', 'data:text/text;charset=utf-8,' + encodeURI(resultCsv.innerHTML));
-                element.setAttribute('download', 'text2table-' + Date.now() + '.csv');
-                element.click();
+                // Do not use innerHTML else "F&B" will become "F&amp;B"
+                download('text2table-' + Date.now() + '.csv', resultCsv.innerText);
             });
         }
 
@@ -301,10 +347,8 @@
             downloadJsonLink.addEventListener('click', (event) => {
                 event.preventDefault();
 
-                let element = document.createElement('a');
-                element.setAttribute('href', 'data:text/text;charset=utf-8,' + encodeURI(resultJson.innerHTML));
-                element.setAttribute('download', 'text2table-' + Date.now() + '.json');
-                element.click();
+                // Do not use innerHTML else "F&B" will become "F&amp;B"
+                download('text2table-' + Date.now() + '.json', resultJson.innerText);
             });
         }
 
@@ -539,34 +583,6 @@
                 json: jsonResultItems,
                 html: html,
             };
-        }
-
-        /**
-         * Convert timestamp from UTC timezone to local timezone and format as ISO 8601
-         *
-         * @param {(int|string|Date)} utcDateValue
-         * @returns {string} E.g. 2022-09-24T11:00:00.123+08:00.
-         *     Empty string returned if error.
-         */
-        function dateToIsoLocal(utcDateValue) {
-            let result = '';
-            let utcDate = toDate(utcDateValue);
-            if (!utcDate) {
-                console.error('Could not convert to Date:', utcDateValue);
-                return '';
-            }
-
-            // getTimezoneOffset() returns in reverse direction, e.g. -480 for Singapore +08:00, hence multiply by -1
-            let tzOffsetMins = -1 * utcDate.getTimezoneOffset();
-            let tzSign = (tzOffsetMins < 0) ? '-' : '+';
-            let tzHours = Math.floor(Math.abs(tzOffsetMins) / 60);
-            let tzMinutes = Math.abs(tzOffsetMins) - (tzHours * 60);
-
-            let localDate = new Date(utcDate.getTime() + (tzOffsetMins * 60 * 1000));
-            result = localDate.toISOString().replace('Z', '') // remove UTC timezone suffix
-                + tzSign + tzHours.toString().padStart(2, '0') + ':' + tzMinutes.toString().padStart(2, '0');
-
-            return result;
         }
 
         /**
