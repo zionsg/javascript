@@ -421,7 +421,7 @@
 
               <label class="form-label">
                 Working Style
-                <select name="field" class="form-select">
+                <select name="working_style" class="form-select">
                   <option value="">Select option</option>
                   <option value="lark">Morning lark</option>
                   <option value="owl">Night owl</option>
@@ -430,9 +430,17 @@
 
               <div class="form-check">
                 <label class="form-check-label">
-                  You are a bot
-                  <input class="form-check-input" type="checkbox" checked>
+                  Show dependent details <!-- do not use double negative language -->
+                  <input name="show_details" class="form-check-input" type="checkbox"
+                    data-bs-toggle="collapse" data-bs-target=".js-for-show-details-checkbox"
+                    aria-expanded="false">
                 </label>
+
+                <!-- Toggling this expands form width, may not be good for accessibility -->
+                <details class="js-for-show-details-checkbox mb-3 collapse">
+                  <summary>Details (press Space to toggle)</summary>
+                  Shown when checkbox is ticked.
+                </details>
               </div>
 
               <fieldset name="company_details">
