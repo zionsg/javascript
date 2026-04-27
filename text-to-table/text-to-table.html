@@ -233,13 +233,15 @@
 
                 let delimiters = ['+', '|'];
                 lines.forEach((line, lineIndex) => {
-                    line = line.trim();
-
+                    // Do not trim current line as it may start with "    | " which is a
+                    // continuation of the previous line. This happens when the previous column
+                    // header is too long and goes onto the next line. Trim current line only when
+                    // adding it to the result
                     let prevLine = (lines[lineIndex - 1] ?? '').trim();
                     if (!delimiters.includes(prevLine.substring(prevLine.length - 1))) {
-                        fixedText += line;
+                        fixedText += line.trim();
                     } else {
-                        fixedText += (delimiters.includes(line.substring(0, 1)) ? "\n" : '') + line;
+                        fixedText += (delimiters.includes(line.substring(0, 1)) ? "\n" : '') + line.trim();
                     }
                 });
 
