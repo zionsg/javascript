@@ -1,13 +1,14 @@
 /**
  * Parse Git diff for package-lock.json from running of `npm audit fix`
  *
- * Assuming the commit hash is befb97f, run the following to get diff.txt:
- *     git diff befb97f^! > diff.txt
+ * Assuming the commit hash that changed the file is befb97f, run the following
+ * to get tmp.diff.txt (prefix with "tmp." as .gitignore would ignore it):
+ *     git diff befb97f^! -- ./package-lock.json > tmp.diff.txt
  *
  * This only runs in Node.js and not in the browser due to use of git and fs.
  */
 
-let diff = require('fs').readFileSync('diff.txt');
+let diff = require('fs').readFileSync('tmp.diff.txt');
 
 let lines = diff.toString().split('\n');
 let diffStarted = false;
