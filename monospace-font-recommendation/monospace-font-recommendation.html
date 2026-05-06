@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monospace Font Recommendation</title>
+
+    <style>
+      html,
+      body {
+        font-family: monospace;
+        font-size: 16px;
+      }
+
+      body {
+        padding: 0.5rem;
+      }
+
+      @font-face { /* https://fonts.google.com/specimen/Inconsolata */
+        font-display: swap;
+        font-family: "Inconsolata";
+        font-stretch: 100%;
+        font-style: normal;
+        font-weight: 400 700; /* normal, bold */
+        src: url(./Inconsolata-VariableFont_wdth,wght.ttf) format('truetype'); /* font file for variable font */
+      }
+
+      code {
+        background-color: #f9f2f4;
+        color: #c7254e;
+        padding: 2px;
+      }
+
+      pre {
+        background: #eee;
+        padding: 1rem;
+      }
+
+      a {
+        color: blue;
+      }
+      a:hover {
+        color: magenta;
+      }
+
+      .monospace {
+        font-family: "Inconsolata";
+        font-size: 1.5rem;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>Monospace Font Recommendation</h1>
+
+    <ul>
+      <li>
+        Criteria:
+        <ul>
+          <li>Free and open source.</li>
+          <li>Can be self-hosted for use with offline systems without Internet connectivity.</li>
+          <li>
+            Distinctive characters: Features a clear difference between 0 (zero) and O (letter O),
+            as well as 1 (one), I (capital i), and l (lowercase L).
+          </li>
+        </ul>
+      </li>
+      <li>
+        The Consolas font has distinctive characters but is only free on Microsoft Windows, Office and Visual Studio.
+      </li>
+    </ul>
+
+    <h2>
+      Font:
+      <a target="_blank" rel="noopener" href="https://fonts.google.com/specimen/Inconsolata">Inconsolata</a>
+    </h2>
+
+    <b><code class="monospace"> 0ODo  1lI 5S 8B 9g UV  uv </code></b>
+
+    <!--
+      Need to use &lt; and &gt; for <> as the latter will be interpreted as opening/closing
+      HTML tags even within <code> and <pre>
+    -->
+    <pre class="monospace">
+0123456789
+ABCDEFGHIJKLMNOPQRSTUVWXYZ
+abcdefghijklmnopqrstuvwxyz
+`~!@#$%^&*-_=+\|;:'",./?
+()[]{}&lt;&gt;
+    </pre>
+
+    <script>
+        (function () {
+            window.addEventListener('DOMContentLoaded', () => {
+                ['code', 'pre'].forEach((selector) => {
+                    // Cannot use innerText as multiple spaces will be collapsed into one
+                    let element = document.querySelector(selector);
+                    let html = element.innerHTML; // do not trim as we want to show beginning/trailing spaces if any
+
+                    // Need to replace spaces with &nbsp; as multiple spaces
+                    // will be shown as a single space even within <code> and <pre>
+                    html = html.replaceAll(' ', '&nbsp;');
+
+                    // Cannot set to innerText as &nbsp; will be rendered literally
+                    element.innerHTML = html;
+                });
+            });
+        })()
+    </script>
+  </body>
+</html>
