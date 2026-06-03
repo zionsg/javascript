@@ -108,6 +108,22 @@
         <code>
           version  account-id  interface-id  srcaddr  dstaddr  srcport  dstport  protocol  packets  bytes  start  end  action  log-status  vpc-id  subnet-id  instance-id  tcp-flags  type  pkt-srcaddr  pkt-dstaddr  region  az-id  sublocation-type  sublocation-id  pkt-src-aws-service  pkt-dst-aws-service  flow-direction  traffic-path
         </code>
+        <ul>
+          <li>
+            To trace the resource attached to an Elastic Network Interface (ENI), either search via
+            AWS Console > EC2 > Network Interfaces, or use the AWS CLI, e.g.:
+            <pre>
+aws ec2 describe-network-interfaces \
+  --network-interface-ids eni-048681e177df837b5 eni-001d19d2c2a2b8c45 \
+  --query "NetworkInterfaces[].{ \
+      InterfaceId:NetworkInterfaceId, InterfaceType:InterfaceType, \
+      PrivateIp:PrivateIpAddress, AvailabilityZone:AvailabilityZone, \
+      VpcId:VpcId, SubnetId:SubnetId, OwnerId:OwnerId, \
+      Description:Description \
+    }"
+            </pre>
+          </li>
+        </ul>        
       </li>
     </ul>
 
