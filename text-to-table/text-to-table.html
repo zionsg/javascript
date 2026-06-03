@@ -94,7 +94,7 @@
       <li>
         AWS CloudFront
         <a target="_blank" rel="noopener"
-          href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/AccessLogs.html#BasicDistributionFileFormat">
+          href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/standard-logs-reference.html#BasicDistributionFileFormat">
           standard log file fields</a>:<br>
         <code>
           date  time  x-edge-location  sc-bytes  c-ip  cs-method  cs(Host)  cs-uri-stem  sc-status  cs(Referer)  cs(User-Agent)  cs-uri-query  cs(Cookie)  x-edge-result-type  x-edge-request-id  x-host-header  cs-protocol  cs-bytes  time-taken  x-forwarded-for  ssl-protocol  ssl-cipher  x-edge-response-result-type  cs-protocol-version  fle-status  fle-encrypted-fields  c-port  time-to-first-byte  x-edge-detailed-result-type  sc-content-type  sc-content-len  sc-range-start  sc-range-end
@@ -103,10 +103,10 @@
       <li>
         AWS VPC
         <a target="_blank" rel="noopener"
-          href="https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html#flow-logs-fields">
-          flow log fields</a>:<br>
+          href="https://docs.aws.amazon.com/vpc/latest/userguide/flow-log-records.html#flow-logs-custom">
+          flow log fields</a> (custom format, all fields):<br>
         <code>
-          version  account-id  interface-id  srcaddr  dstaddr  srcport  dstport  protocol  packets  bytes  start  end  action  log-status  vpc-id  subnet-id  instance-id  tcp-flags  type  pkt-srcaddr  pkt-dstaddr  region  az-id  sublocation-type  sublocation-id  pkt-src-aws-service  pkt-dst-aws-service  flow-direction  traffic-path
+          version  account-id  interface-id  srcaddr  dstaddr  srcport  dstport  protocol  packets  bytes  start  end  action  log-status  vpc-id  subnet-id  instance-id  tcp-flags  type  pkt-srcaddr  pkt-dstaddr  region  az-id  sublocation-type  sublocation-id  pkt-src-aws-service  pkt-dst-aws-service  flow-direction  traffic-path  ecs-cluster-name  ecs-cluster-arn  ecs-container-instance-id  ecs-container-instance-arn  ecs-service-name  ecs-task-definition-arn  ecs-task-id  ecs-task-arn  ecs-container-id  ecs-second-container-id  reject-reason  resource-id  encryption-status
         </code>
         <ul>
           <li>
@@ -123,7 +123,7 @@ aws ec2 describe-network-interfaces \
     }"
             </pre>
           </li>
-        </ul>        
+        </ul>
       </li>
     </ul>
 
