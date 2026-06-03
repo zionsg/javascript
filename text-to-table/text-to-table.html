@@ -114,7 +114,7 @@
             AWS Console > EC2 > Network Interfaces, or use the AWS CLI, e.g.:
             <pre>
 aws ec2 describe-network-interfaces \
-  --network-interface-ids eni-048681e177df837b5 eni-001d19d2c2a2b8c45 \
+  --network-interface-ids eni-0123456789 eni-9876543210 \
   --query "NetworkInterfaces[].{ \
       InterfaceId:NetworkInterfaceId, InterfaceType:InterfaceType, \
       PrivateIp:PrivateIpAddress, AvailabilityZone:AvailabilityZone, \
