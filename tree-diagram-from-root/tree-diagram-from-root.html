@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tree Diagram from Root</title>
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        overflow-x: auto;
+        padding: 0;
+      }
+
+      body {
+        padding: 1rem;
+      }
+
+      .container {
+        margin: 0 auto;
+        text-align: center;
+      }
+
+      .wrapper {
+        width: 100%;
+      }
+
+      .block {
+        display: inline-block;
+        margin: 1%;
+        min-height: 1rem;
+        min-width: 3rem;
+        padding: 0.5rem 0;
+        text-align: center;
+        outline: 1px solid black;
+      }
+
+      .symbol {
+        line-height: 0.5rem;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container"></div>
+
+    <script>
+        // See http://xahlee.info/comp/unicode_taiji_bagua.html
+        // 无极生太极，太极生两仪（阴爻，阳爻），两仪生四象（太阴，少阳，少阴，太阳），
+        // 四象生八卦（坤，艮，坎，巽，震，离，兑，乾）
+        draw(
+            document.querySelector('.container'),
+            3,
+            [1, 0], // 1 for yin (line with 1 cut), 0 for yang (line with 0 cuts), left/right
+            function (values) {
+                let map = {
+                    0: '&#x268A;', // yang symbol, unbroken line with 0 cuts
+                    1: '&#x268B;', // yin symbol, broken line with 1 cut
+                };
+
+                let symbol = values
+                    .map((val) => '<div class="symbol">' + map[val] + '</div>')
+                    .join('');
+                symbol = symbol || '<div class="symbol">&#x262F;</div>';
+
+                let binaryNumber = values.map((val) => val.toString()).join('');
+                let number = ('' === binaryNumber) ? '' : parseInt(binaryNumber, 2);
+
+                return (symbol + '<br>' + binaryNumber + '<br>' + number);
+            },
+            function (values, partValue) {
+                return [partValue, ...values];
+            }
+        );
+
+        /**
+         * Recursive function to draw tree diagram from root
+         *
+         * @param {HTMLElement} containerElement - Element to contain entire
+         *     tree diagram.
+         * @param {int} levels - No. of levels to draw.
+         * @param {mixed[]} parts - Each level above will be split into the
+         *     no. of elements in `parts`, with each part given the value in
+         *     the corresponding index.
+         * @param {function(mixed[]): string} renderFunction - Function to
+         *     render HTML for each block, takes in array of values for block
+         *     and returns HTML.
+         * @param {function(mixed[], mixed): mixed[]} valuesFunction - Function
+         *     to add value for block into values for level (can be append
+         *     or prepend), takes in array of values and value for block,
+         *     returns new array of values.
+         * @param {HTMLElement[]} levelWrapperElements=[] - Set via recursion,
+         *     not by user. Array of wrapper elements for each level.
+         * @param {int} currentLevel=0 - Set via recursion, not by user. Current
+         *     level of recursion.
+         * @param {mixed[]} values=[] - Set via recursion, not by user. Array
+         *     of values for block.
+         * @returns {void}
+         */
+        function draw(
+            containerElement,
+            levels,
+            parts,
+            renderFunction,
+            valuesFunction,
+            levelWrapperElements = [],
+            currentLevel = 0,
+            values = []
+        ) {
+            if (0 === currentLevel) {
+                for (let i = 0; i <= levels; i++) {
+                    let wrapperElement = document.createElement('div');
+                    wrapperElement.classList.add('wrapper');
+                    levelWrapperElements.push(wrapperElement);
+                    containerElement.prepend(wrapperElement);
+                }
+            }
+
+            let blockCnt = Math.pow(2, currentLevel);
+            let element = document.createElement('div');
+            element.classList.add('block');
+            element.setAttribute('data-level', currentLevel);
+            element.setAttribute('data-percent', 100 / blockCnt);
+            element.style = 'width:calc(' + (100 / blockCnt) + '% - 2%);'; // 2% for side margins
+            element.innerHTML = renderFunction(values);
+            levelWrapperElements[currentLevel].prepend(element);
+
+            if (currentLevel >= levels) {
+                return;
+            }
+
+            for (let i = parts.length - 1; i >= 0; i--) {
+                draw(
+                    containerElement,
+                    levels,
+                    parts,
+                    renderFunction,
+                    valuesFunction,
+                    levelWrapperElements,
+                    currentLevel + 1,
+                    valuesFunction(values, parts[i])
+                );
+            }
+        }
+    </script>
+  </body>
+</html>
