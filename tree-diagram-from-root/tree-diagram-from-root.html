@@ -17,16 +17,16 @@
         padding: 1rem;
       }
 
-      .container {
+      .tree {
         margin: 0 auto;
         text-align: center;
       }
 
-      .wrapper {
+      .layer {
         width: 100%;
       }
 
-      .block {
+      .branch {
         display: inline-block;
         margin: 1%;
         min-height: 1rem;
@@ -43,103 +43,167 @@
   </head>
 
   <body>
-    <div class="container"></div>
+    <h1>Tree Diagram from Root</h1>
+
+    <h2>Base 3 Numeral System (Ternary / Trinary)</h2>
+    <div id="ternary" class="tree"></div>
+
+    <h2>Trigrams</h2>
+    <div id="trigram" class="tree">
+
+      <div class="layer" data-layer="-1">
+        <div class="branch" data-branch="-1">
+          <div class="symbol">&#x25EF;</div>
+          <div class="word">无极</div>
+        </div>
+      </div>
+    </div>
 
     <script>
-        // See http://xahlee.info/comp/unicode_taiji_bagua.html
+        // See https://en.wikipedia.org/wiki/Ternary_numeral_system
+        draw(
+            document.querySelector('#ternary'),
+            2,
+            [0, 1, 2], // digits in Base-3 system, left/center/right
+            function (values) {
+                let ternaryNumber = values.map((val) => val.toString()).join('');
+                let decimalNumber = ('' === ternaryNumber) ? '' : parseInt(ternaryNumber, 3);
+
+                return ('' === ternaryNumber ? 'Base 3 numeral system' : ternaryNumber + '<br>' + decimalNumber)
+            },
+            function (values, branchValue) {
+                return [...values, branchValue];
+            }
+        )
+
+        // See https://zhuanlan.zhihu.com/p/717596608 on why yang is 0 and yin is 1
+        // See http://xahlee.info/comp/unicode_taiji_bagua.html on Unicode characters
         // 无极生太极，太极生两仪（阴爻，阳爻），两仪生四象（太阴，少阳，少阴，太阳），
         // 四象生八卦（坤，艮，坎，巽，震，离，兑，乾）
         draw(
-            document.querySelector('.container'),
+            document.querySelector('#trigram'),
             3,
-            [1, 0], // 1 for yin (line with 1 cut), 0 for yang (line with 0 cuts), left/right
+            [1, 0], // 1 for yin (broken line with 1 cut), 0 for yang (unbroken line with 0 cuts), left/right
             function (values) {
-                let map = {
+                let symbolMap = {
+                    '': '&#x262F;', // yin-yang symbol
                     0: '&#x268A;', // yang symbol, unbroken line with 0 cuts
                     1: '&#x268B;', // yin symbol, broken line with 1 cut
                 };
+                let wordMap = { // indexed by binary number
+                    '': '太极',
+                    '0': '阳',
+                    '1': '阴',
+                    '11': '太阴',
+                    '01': '少阳',
+                    '10': '少阴',
+                    '00': '太阳',
+                    '111': '坤',
+                    '011': '艮',
+                    '101': '坎',
+                    '001': '巽',
+                    '110': '震',
+                    '010': '离',
+                    '100': '兑',
+                    '000': '乾',
+                };
 
                 let symbol = values
-                    .map((val) => '<div class="symbol">' + map[val] + '</div>')
+                    .map((val) => '<div class="symbol">' + symbolMap[val] + '</div>')
                     .join('');
-                symbol = symbol || '<div class="symbol">&#x262F;</div>';
+                symbol = symbol || `<div class="symbol">${symbolMap['']}</div>`;
 
                 let binaryNumber = values.map((val) => val.toString()).join('');
-                let number = ('' === binaryNumber) ? '' : parseInt(binaryNumber, 2);
+                let decimalNumber = ('' === binaryNumber) ? '' : parseInt(binaryNumber, 2);
+                let word = wordMap[binaryNumber] || '&nbsp;';
 
-                return (symbol + '<br>' + binaryNumber + '<br>' + number);
+                return (
+                    symbol
+                        + `<div class="word">${word}</div>`
+                        + ('' === binaryNumber ? '' : binaryNumber + '<br>' + decimalNumber)
+                );
             },
-            function (values, partValue) {
-                return [partValue, ...values];
+            function (values, branchValue) {
+                return [branchValue, ...values];
             }
         );
 
         /**
-         * Recursive function to draw tree diagram from root
+         * Recursive function to draw tree diagram upwards from root
          *
-         * @param {HTMLElement} containerElement - Element to contain entire
+         * @param {HTMLElement} treeElement - Element to contain entire
          *     tree diagram.
-         * @param {int} levels - No. of levels to draw.
-         * @param {mixed[]} parts - Each level above will be split into the
-         *     no. of elements in `parts`, with each part given the value in
-         *     the corresponding index.
+         * @param {int} layerCount - No. of layers to draw, excluding root, e.g.
+         *     if this is 3, the tree will have 4 layers including the root
+         *     which is layer 0.
+         * @param {mixed[]} branches - Each branch in a layer will split
+         *     upwards into N branches to the layer above it, with N determined
+         *     by the no. of elements in this method parameter. Each new branch
+         *     will be assigned the value corresponding to the index in this
+         *     method parameter.
          * @param {function(mixed[]): string} renderFunction - Function to
-         *     render HTML for each block, takes in array of values for block
+         *     render HTML for each branch, takes in array of values for branch
          *     and returns HTML.
          * @param {function(mixed[], mixed): mixed[]} valuesFunction - Function
-         *     to add value for block into values for level (can be append
-         *     or prepend), takes in array of values and value for block,
-         *     returns new array of values.
-         * @param {HTMLElement[]} levelWrapperElements=[] - Set via recursion,
-         *     not by user. Array of wrapper elements for each level.
-         * @param {int} currentLevel=0 - Set via recursion, not by user. Current
-         *     level of recursion.
-         * @param {mixed[]} values=[] - Set via recursion, not by user. Array
-         *     of values for block.
+         *     to combine value assigned to branch with values for layer (can
+         *     be append or prepend), takes in array of values and value for
+         *     branch, returns new array of values for the branch.
+         * @param {HTMLElement[]} layerElements=[] - Set via recursion,
+         *     not by user. Array of wrapper elements for each layer.
+         * @param {int} currentLayer=0 - Set via recursion, not by user. Current
+         *     layer of tree.
+         * @param {int} currentBranch=0 - Set via recursion, not by user.
+         *     Current branch in current layer of tree.
+         * @param {mixed[]} currentBranchValues=[] - Set via recursion, not by
+         *     user. Array of values for current branch in current layer of
+         *     tree.
          * @returns {void}
          */
         function draw(
-            containerElement,
-            levels,
-            parts,
+            treeElement,
+            layerCount,
+            branches,
             renderFunction,
             valuesFunction,
-            levelWrapperElements = [],
-            currentLevel = 0,
-            values = []
+            layerElements = [],
+            currentLayer = 0,
+            currentBranch = 0,
+            currentBranchValues = []
         ) {
-            if (0 === currentLevel) {
-                for (let i = 0; i <= levels; i++) {
-                    let wrapperElement = document.createElement('div');
-                    wrapperElement.classList.add('wrapper');
-                    levelWrapperElements.push(wrapperElement);
-                    containerElement.prepend(wrapperElement);
+            if (0 === currentLayer) {
+                for (let i = 0; i <= layerCount; i++) { // include root layer
+                    let layerElement = document.createElement('div');
+                    layerElement.classList.add('layer');
+                    layerElement.setAttribute('data-layer', i);
+                    layerElements.push(layerElement);
+                    treeElement.prepend(layerElement);
                 }
             }
 
-            let blockCnt = Math.pow(2, currentLevel);
-            let element = document.createElement('div');
-            element.classList.add('block');
-            element.setAttribute('data-level', currentLevel);
-            element.setAttribute('data-percent', 100 / blockCnt);
-            element.style = 'width:calc(' + (100 / blockCnt) + '% - 2%);'; // 2% for side margins
-            element.innerHTML = renderFunction(values);
-            levelWrapperElements[currentLevel].prepend(element);
+            let branchCntInLayer = Math.pow(branches.length, currentLayer);
+            let branchElement = document.createElement('div');
+            branchElement.classList.add('branch');
+            branchElement.setAttribute('data-branch', currentBranch);
+            branchElement.setAttribute('data-percent', 100 / branchCntInLayer);
+            branchElement.style = 'width:calc(' + (100 / branchCntInLayer) + '% - 2%);'; // 2% for side margins
+            branchElement.innerHTML = renderFunction(currentBranchValues);
+            layerElements[currentLayer].append(branchElement);
 
-            if (currentLevel >= levels) {
+            if (currentLayer >= layerCount) {
                 return;
             }
 
-            for (let i = parts.length - 1; i >= 0; i--) {
+            for (let i = 0; i < branches.length; i++) {
                 draw(
-                    containerElement,
-                    levels,
-                    parts,
+                    treeElement,
+                    layerCount,
+                    branches,
                     renderFunction,
                     valuesFunction,
-                    levelWrapperElements,
-                    currentLevel + 1,
-                    valuesFunction(values, parts[i])
+                    layerElements,
+                    currentLayer + 1,
+                    (0 === currentBranch) ? i + 1 : currentBranch + i + (currentBranch - 1), // one-based number
+                    valuesFunction(currentBranchValues, branches[i])
                 );
             }
         }
