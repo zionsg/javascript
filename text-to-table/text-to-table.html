@@ -133,7 +133,10 @@ aws ec2 describe-network-interfaces \
 
     <input id="is-html-table" type="checkbox" /> Input text is HTML <code>&lt;table&gt;</code><br>
     <input id="fix-wrapped-sql-tabular-result" type="checkbox" />
-      Fix wrapped SQL tabular result (where columns exceeding terminal width are wrapped to the next line)<br>
+      Fix wrapped SQL tabular result where columns exceeding terminal width are wrapped to the next line
+      (to render <code>psql</code> tabular results the same as <code>mysql</code>,
+      use <code>-P pager=off -P border=2</code> options)
+      <br>
     <input id="is-aws-cloudfront-log-format" type="checkbox" />
         Input text uses format of AWS CloudFront logs or AWS VPC flow logs
         (single-space delimited, <code>timestamp-local</code> column will be added)<br>
