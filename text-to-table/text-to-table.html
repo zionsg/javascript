@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Text to Table, CSV and JSON</title>
+    <title>Text to Table/CSV/JSON/SQL</title>
 
     <style>
       html,
@@ -67,7 +67,7 @@
   </head>
 
   <body>
-    <h3>Convert text to ASCII/Markdown table, CSV and JSON</h3>
+    <h3>Convert text to ASCII/Markdown table, CSV, JSON and SQL</h3>
 
     <ul>
       <li>1st line assumed to be header row.</li>
@@ -164,6 +164,10 @@ aws ec2 describe-network-interfaces \
     <div id="result-html"></div>
     <p>&nbsp;</p>
 
+    <b>SAMPLE SQL</b> (ANSI SQL and PostgreSQL use double quotes to quote column names)
+    <pre id="sample-sql"></pre>
+    <p>&nbsp;</p>
+
     <script>
         const BLANK_CHAR = ' ';
         const BLANK_PLACEHOLDER = '%BLANK%';
@@ -179,6 +183,7 @@ aws ec2 describe-network-interfaces \
         let resultJson = document.getElementById('result-json');
         let resultTable = document.getElementById('result-table');
         let resultHtml = document.getElementById('result-html');
+        let sampleSql = document.getElementById('sample-sql');
 
         /**
          * Onload listener to load sample text
@@ -192,7 +197,7 @@ aws ec2 describe-network-interfaces \
               t3.2xlarge    8    Variable    32 GiB    EBS Only    $0.4224 per Hour
               m5.2xlarge    8    31    32 GiB    EBS Only    $0.48 per Hour
 
-              c5.2xlarge  |8  |  34| 16 GiB${tab}EBS Only  ${tab}   $0.392 per Hour\\nTestRow "hi",!
+              c5.2xlarge  |8  |  34| 16 GiB${tab}EBS Only  ${tab}   $0.392 per Hour\\nTestRow "hi'ya",!
             `.trim();
 
             convert();
@@ -279,6 +284,25 @@ aws ec2 describe-network-interfaces \
             resultJson.innerHTML = JSON.stringify(result.json, null, 2);
             resultHtml.innerHTML = result.html;
 
+            let sql = '';
+            if (result.records.length !== 0) {
+                let indent = ' '.repeat(4);
+                let sql = `INSERT INTO table\n${indent}(`
+                    + result.columns.map((col) => `"${col}"`).join(', ') // ANSI SQL & PostgreSQL use " to quote columns
+                    + `)\n${indent}VALUES`;
+                result.records.forEach((record) => {
+                    let values = [];
+                    let value = '';
+                    result.columns.forEach((col) => {
+                        value = record[col];
+                        values.push('string' === typeof value ? `'${value.replaceAll("'", "\\'")}'` : value);
+                    });
+                    sql += `\n${indent}(${values.join(', ')})`;
+                });
+                sql += ';';
+                sampleSql.innerHTML = sql;
+            }
+
             // Store results in element for copying to clipboard
             resultClipboard.value = result.table;
         }
@@ -314,7 +338,6 @@ aws ec2 describe-network-interfaces \
         /**
          * Trigger download of file with text contents
          *
-         * @public
          * @param {string} filename
          * @param {string} text
          * @returns {void}
@@ -371,6 +394,20 @@ aws ec2 describe-network-interfaces \
                 // Do not use innerHTML else "F&B" will become "F&amp;B"
                 download('text2table-' + Date.now() + '.json', resultJson.innerText);
             });
+        }
+
+        /**
+         * Resolve type for value and cast to number/string
+         *
+         * @param {mixed} value
+         * @returns {(int|float|string)}
+         */
+        function resolveValueType(value) {
+            if (!isNaN(parseFloat(value)) && isFinite(value)) { // is numeric
+                return (Number.isInteger(value) ? parseInt(value) : parseFloat(value));
+            }
+
+            return value;
         }
 
         /**
@@ -533,18 +570,32 @@ aws ec2 describe-network-interfaces \
             let rowCnt = rows.length;
             let csvResultRows = [];
             let jsonResultItems = [];
+            let records = []; // different from jsonResultItems in that numeric columns will be identified
+            let columnNames = []; // columns in order
+            let numericColumns = [];
             let headerRow = [];
             rows.forEach(function (row, rowIndex) {
                 let csvRow = [];
                 let jsonRow = {};
+                let record = {};
+                let columnName = '';
+                let resolvedValue = '';
 
                 // Go thru each row and pad columns to align them
                 row.forEach(function (col, colIndex) {
                     // Store values before they are padded
                     if (0 === rowIndex) { // header row
-                        headerRow[colIndex] = row[colIndex]
+                        headerRow[colIndex] = row[colIndex];
+                        columnNames.push(row[colIndex]);
                     } else {
-                        jsonRow[headerRow[colIndex]] = row[colIndex];
+                        columnName = headerRow[colIndex];
+                        jsonRow[columnName] = row[colIndex];
+
+                        resolvedValue = resolveValueType(row[colIndex]);
+                        record[columnName] = resolvedValue;
+                        if (typeof resolvedValue !== 'string') {
+                            numericColumns.push(columnName);
+                        }
                     }
 
                     row[colIndex] = row[colIndex].padEnd(maxColumnLengths[colIndex] || 0, ' ');
@@ -557,13 +608,16 @@ aws ec2 describe-network-interfaces \
                     if (0 === rowIndex) { // header row
                         headerRow[i] = '';
                     } else {
-                        jsonRow[headerRow[i]] = '';
+                        columnName = headerRow[i];
+                        jsonRow[columnName] = '';
+                        record[columnName] = numericColumns.includes(columnName) ? 0 : '';
                     }
                 }
 
                 csvResultRows.push(csvRow.join(','));
                 if (rowIndex > 0) {
                     jsonResultItems.push(jsonRow);
+                    records.push(record);
                 }
 
                 // Append row output to result
@@ -602,6 +656,8 @@ aws ec2 describe-network-interfaces \
                 table: resultRows.join("\n"),
                 csv: csvResultRows.join("\n"),
                 json: jsonResultItems,
+                columns: columnNames,
+                records: records,
                 html: html,
             };
         }
