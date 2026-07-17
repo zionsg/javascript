@@ -290,7 +290,9 @@ aws ec2 describe-network-interfaces \
                 let sql = `INSERT INTO table\n${indent}(`
                     + result.columns.map((col) => `"${col}"`).join(', ') // ANSI SQL & PostgreSQL use " to quote columns
                     + `)\n${indent}VALUES`;
-                result.records.forEach((record) => {
+
+                let recordCnt = result.records.length;
+                result.records.forEach((record, recordIndex) => {
                     let values = [];
                     let value = '';
                     result.columns.forEach((col) => {
@@ -298,6 +300,10 @@ aws ec2 describe-network-interfaces \
                         values.push('string' === typeof value ? `'${value.replaceAll("'", "\\'")}'` : value);
                     });
                     sql += `\n${indent}(${values.join(', ')})`;
+
+                    if (recordCnt > 1 && recordIndex < recordCnt - 1) {
+                        sql += ',';
+                    }
                 });
                 sql += ';';
                 sampleSql.innerHTML = sql;
