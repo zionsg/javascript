@@ -34,7 +34,8 @@
  *                   "path": "src/api/database/actor.table.js",
  *                   "line": 123,
  *                   "column": 45,
- *                   "text": "OrganizationAdmin"
+ *                   "old_text": "OrganizationAdmin",
+ *                   "new_text": "OrganisationUser"
  *                 },
  *             ]
  *         }
@@ -103,7 +104,6 @@ function renameWordsInRepository(
 
                 let contents = fs.readFileSync(currPath).toString();
                 let matches = contents.matchAll(regex);
-                let matchCnt = 0;
                 let lastMatchIndex = -1;
                 let lastMatchLength = -1;
                 let updatedContents = '';
@@ -112,7 +112,6 @@ function renameWordsInRepository(
                     let lines = textBeforeMatch.split('\n');
                     let lineNumber = lines.length;
                     let columnNumber = lines[lines.length - 1].length + 1;
-                    matchCnt++;
 
                     let oldText = '';
                     let newText = '';
@@ -135,7 +134,9 @@ function renameWordsInRepository(
                         } else if (word === oldWordSentenceCaseArray[wordIndex]) {
                             newText += newWordSentenceCaseArray[wordIndex];
                         } else {
-                            throw new Error(`Unsupported case for word "${word}" at ${location}`);
+                            throw new Error(
+                                `Unsupported case for word "${word}" at ${relativePath}:${lineNumber}:${columnNumber}`
+                            );
                         }
                     }
 
@@ -147,12 +148,12 @@ function renameWordsInRepository(
 
                     lastMatchIndex = match.index;
                     lastMatchLength = oldText.length;
-                    matchCnt++;
                     occurrences.push({
                         path: relativePath,
                         line: lineNumber,
                         column: columnNumber,
-                        text: oldText,
+                        old_text: oldText,
+                        new_text: newText,
                     });
                 } // end for matches
 
