@@ -133,7 +133,7 @@ function renameWordsInRepository(
                         } else if (word === oldWordUpperCaseArray[wordIndex]) {
                             newText += newWordUpperCaseArray[wordIndex];
                         } else if (word === oldWordSentenceCaseArray[wordIndex]) {
-                            newText += newWordUpperCaseArray[wordIndex];
+                            newText += newWordSentenceCaseArray[wordIndex];
                         } else {
                             throw new Error(`Unsupported case for word "${word}" at ${location}`);
                         }
