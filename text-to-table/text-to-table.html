@@ -281,7 +281,7 @@ aws ec2 describe-network-interfaces \
             let result = textToTable(text, hasFooterRow, rowsPerSection, isHtmlTable, addTimestampLocalColumn);
             resultTable.innerHTML = result.table;
             resultCsv.innerHTML = result.csv;
-            resultJson.innerHTML = JSON.stringify(result.json, null, 2);
+            resultJson.innerHTML = JSON.stringify(result.records, null, 2); // more useful to use .records than .json
             resultHtml.innerHTML = result.html;
 
             let sql = '';
