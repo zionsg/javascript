@@ -137,6 +137,10 @@ aws ec2 describe-network-interfaces \
       (to render <code>psql</code> tabular results the same as <code>mysql</code>,
       use <code>-P pager=off -P border=2</code> options)
       <br>
+    <input id="skip-multiple-spaces-as-column-delimiter" type="checkbox" />
+      Do NOT use multiple spaces as column delimiter (typically for SQL results where values in a
+      column contain multiple spaces)
+      <br>
     <input id="is-aws-cloudfront-log-format" type="checkbox" />
         Input text uses format of AWS CloudFront logs or AWS VPC flow logs
         (single-space delimited, <code>timestamp-local</code> column will be added)<br>
@@ -447,6 +451,8 @@ aws ec2 describe-network-interfaces \
             // Split each line into columns and calc max width for each column
             text = text.trim().replace(/\\n/g, String.fromCharCode(10));
             let lines = text.trim().split("\n");
+            let skipMultipleSpacesAsColumnDelimiter =
+                document.getElementById('skip-multiple-spaces-as-column-delimiter').checked;
             let isHeaderRowHandled = false;
             let blankRegex = new RegExp(BLANK_PLACEHOLDER, 'g');
             let pipeRegex = new RegExp(PIPE_PLACEHOLDER, 'g');
@@ -479,7 +485,9 @@ aws ec2 describe-network-interfaces \
                 // To prevent confusion, trim spaces around existing "|" before converting multiple spaces to "|"
                 // but not tabs else empty cells copied from Excel will be removed
                 line = line.replace(/\s*\|\s*/gi, '|');
-                line = line.replace(/\s{2,}/gi, '|'); // replace multiple spaces
+                if (!skipMultipleSpacesAsColumnDelimiter) {
+                    line = line.replace(/\s{2,}/gi, '|'); // replace multiple spaces
+                }
                 columns = line.split('|').map((value) => value.trim());
 
                 // Replace pipe placeholders
